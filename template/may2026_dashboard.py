@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 2026年5月 営業日報 ダッシュボード PowerPoint 生成（3Dグラフ版）
-フォント全+5pt / 商品名・曜日・昼食夕食は白 / 3Dスタイル
+フォント全+15pt(累計) / 商品名・曜日・昼食夕食は白 / 3Dスタイル
 """
 import io, warnings
 warnings.filterwarnings("ignore")
@@ -118,9 +118,9 @@ def dark_ax3d(ax, fig=None):
         pane.fill = True
         pane.set_facecolor((*card, 0.88))
         pane.set_edgecolor(grid_c)
-    ax.tick_params(axis='x', colors='white', labelsize=13)
-    ax.tick_params(axis='y', colors='white', labelsize=13)
-    ax.tick_params(axis='z', colors='white', labelsize=13)
+    ax.tick_params(axis='x', colors='white', labelsize=23)
+    ax.tick_params(axis='y', colors='white', labelsize=23)
+    ax.tick_params(axis='z', colors='white', labelsize=23)
     ax.xaxis.label.set_color('white')
     ax.yaxis.label.set_color('white')
     ax.zaxis.label.set_color('white')
@@ -129,7 +129,7 @@ def dark_ax(ax, fig=None, bg_key="CARD"):
     bg = c(bg_key)
     if fig: fig.patch.set_facecolor(bg)
     ax.set_facecolor(bg)
-    ax.tick_params(colors="white", labelsize=13)
+    ax.tick_params(colors="white", labelsize=23)
     for sp in ax.spines.values(): sp.set_edgecolor(c("GRID"))
     ax.grid(axis="y", color=c("GRID"), ls="--", lw=0.4, alpha=0.7)
 
@@ -185,21 +185,23 @@ def chart_1():
               color=c("C4"), lw=1.8, ls="--", alpha=0.9)
     ax.text(len(days)+0.3, dy/2, avg*1.05,
             f"平均 {avg/10000:.0f}万",
-            color=c("C4"), fontsize=12, fontweight='bold')
+            color=c("C4"), fontsize=22, fontweight='bold')
 
     xt_idx = list(range(0, len(days), 5))
     ax.set_xticks([i + dx/2 for i in xt_idx])
     ax.set_xticklabels([f"{days[i]}日" for i in xt_idx],
-                       fontsize=11, color='white')
+                       fontsize=21, color='white')
+    for t in ax.get_xticklabels():
+        t.set_color('white')
     ax.yaxis.set_visible(False)
     z_万(ax)
-    ax.set_zlabel("売上高", color='white', fontsize=12, labelpad=8)
+    ax.set_zlabel("売上高", color='white', fontsize=22, labelpad=8)
     ax.set_xlim(-0.5, len(days)+0.5)
     ax.set_ylim(-0.3, 1.5)
     ax.set_zlim(0, max_s*1.35)
     ax.view_init(elev=22, azim=-65)
     ax.set_title("日次売上トレンド（2026年5月）",
-                 color=c("TEXT"), fontsize=15, fontweight="bold", pad=12)
+                 color=c("TEXT"), fontsize=25, fontweight="bold", pad=12)
     fig.tight_layout(pad=0.5)
     return buf(fig)
 
@@ -228,20 +230,22 @@ def chart_2():
             neon_bar3d(ax, xi, 0, avg, dx=dx, dy=dy, col=pal[w])
             ax.text(xi+dx/2, dy+0.12, avg*1.07,
                     f"{avg/10000:.1f}万\nn={n}",
-                    ha='center', va='bottom', fontsize=11,
+                    ha='center', va='bottom', fontsize=21,
                     color=c("TEXT"), fontweight='bold')
 
     ax.set_xticks([i+dx/2 for i in range(len(order))])
-    ax.set_xticklabels(order, fontsize=14, color='white')  # 曜日は白
+    ax.set_xticklabels(order, fontsize=24, color='white')
+    for t in ax.get_xticklabels():
+        t.set_color('white')
     ax.yaxis.set_visible(False)
     z_万(ax)
-    ax.set_zlabel("平均売上", color='white', fontsize=12, labelpad=8)
+    ax.set_zlabel("平均売上", color='white', fontsize=22, labelpad=8)
     ax.set_xlim(-0.5, len(order)+0.5)
     ax.set_ylim(-0.3, 1.5)
     ax.set_zlim(0, max_a*1.5)
     ax.view_init(elev=25, azim=-55)
     ax.set_title("曜日別 平均売上",
-                 color=c("TEXT"), fontsize=15, fontweight="bold", pad=12)
+                 color=c("TEXT"), fontsize=25, fontweight="bold", pad=12)
     fig.tight_layout(pad=0.5)
     return buf(fig)
 
@@ -269,7 +273,7 @@ def chart_3():
         pctdistance=0.76, counterclock=False
     )
     for at in ats:
-        at.set_color("white"); at.set_fontsize(13); at.set_fontweight("bold")
+        at.set_color("white"); at.set_fontsize(23); at.set_fontweight("bold")
 
     ax.add_patch(plt.Circle((0,0), 1.03, fill=False,
                              color=c("C1"), lw=2.5, alpha=0.5))
@@ -277,19 +281,19 @@ def chart_3():
                              color=c("C1"), lw=7, alpha=0.1))
     ax.add_patch(plt.Circle((0,0), 0.38, color=c("CARD"), zorder=10))
     ax.text(0, 0.12, "総売上高", ha="center", va="center",
-            fontsize=11, color=c("SUB"))
+            fontsize=21, color=c("SUB"))
     ax.text(0,-0.15, f"¥{M['total']/10000:.0f}万",
             ha="center", va="center",
-            fontsize=13, color=c("C1"), fontweight="bold")
+            fontsize=23, color=c("C1"), fontweight="bold")
 
     patches = [mpatches.Patch(color=co, label=l)
                for co, l in zip(cols, labels)]
     ax.legend(handles=patches, loc="lower center",
               bbox_to_anchor=(0.5,-0.22), ncol=3,
-              fontsize=11, facecolor=c("BG"), edgecolor=c("GRID"),
+              fontsize=21, facecolor=c("BG"), edgecolor=c("GRID"),
               labelcolor="white", framealpha=0.9)
     ax.set_title("支払方法別 構成",
-                 color=c("TEXT"), fontsize=15, fontweight="bold", pad=8)
+                 color=c("TEXT"), fontsize=25, fontweight="bold", pad=8)
     fig.tight_layout(pad=0.3)
     return buf(fig)
 
@@ -311,20 +315,22 @@ def chart_4():
         neon_bar3d(ax, xi, 0, v, dx=dx, dy=dy, col=col)
         ax.text(xi+dx/2, dy+0.12, v*1.07,
                 f"¥{v/10000:.0f}万\n({v/total*100:.0f}%)",
-                ha='center', va='bottom', fontsize=12,
+                ha='center', va='bottom', fontsize=22,
                 color=c("TEXT"), fontweight='bold')
 
     ax.set_xticks([i+dx/2 for i in range(len(labels))])
-    ax.set_xticklabels(labels, fontsize=13, color='white')
+    ax.set_xticklabels(labels, fontsize=23, color='white')
+    for t in ax.get_xticklabels():
+        t.set_color('white')
     ax.yaxis.set_visible(False)
     z_万(ax)
-    ax.set_zlabel("売上金額", color='white', fontsize=12, labelpad=8)
+    ax.set_zlabel("売上金額", color='white', fontsize=22, labelpad=8)
     ax.set_xlim(-0.5, len(labels)+0.5)
     ax.set_ylim(-0.3, 1.5)
     ax.set_zlim(0, max_v*1.45)
     ax.view_init(elev=25, azim=-55)
     ax.set_title("カテゴリ別 売上金額",
-                 color=c("TEXT"), fontsize=15, fontweight="bold", pad=12)
+                 color=c("TEXT"), fontsize=25, fontweight="bold", pad=12)
     fig.tight_layout(pad=0.5)
     return buf(fig)
 
@@ -347,10 +353,12 @@ def chart_5():
         neon_bar3d(ax1, xi, 0, a, dx=dx, dy=dy, col=col)
         ax1.text(xi+dx/2, dy+0.1, a*1.07,
                  f"{a/10000:.0f}万",
-                 ha='center', va='bottom', fontsize=13,
+                 ha='center', va='bottom', fontsize=23,
                  color=c("TEXT"), fontweight='bold')
     ax1.set_xticks([i+dx/2 for i in range(2)])
-    ax1.set_xticklabels(lbl, fontsize=14, color='white')  # 昼食夕食は白
+    ax1.set_xticklabels(lbl, fontsize=24, color='white')
+    for t in ax1.get_xticklabels():
+        t.set_color('white')
     ax1.yaxis.set_visible(False)
     ax1.zaxis.set_major_formatter(
         mticker.FuncFormatter(lambda v,_: f"{int(v/10000)}万"))
@@ -358,16 +366,18 @@ def chart_5():
     ax1.set_zlim(0, max(amts)*1.45)
     ax1.view_init(elev=22, azim=-55)
     ax1.set_title("売上金額", color=c("TEXT"),
-                  fontsize=14, fontweight='bold', pad=8)
+                  fontsize=24, fontweight='bold', pad=8)
 
     for xi, (p, col) in enumerate(zip(pax, cols)):
         neon_bar3d(ax2, xi, 0, p, dx=dx, dy=dy, col=col)
         ax2.text(xi+dx/2, dy+0.1, p*1.07,
                  f"{p:,}名",
-                 ha='center', va='bottom', fontsize=13,
+                 ha='center', va='bottom', fontsize=23,
                  color=c("TEXT"), fontweight='bold')
     ax2.set_xticks([i+dx/2 for i in range(2)])
-    ax2.set_xticklabels(lbl, fontsize=14, color='white')  # 昼食夕食は白
+    ax2.set_xticklabels(lbl, fontsize=24, color='white')
+    for t in ax2.get_xticklabels():
+        t.set_color('white')
     ax2.yaxis.set_visible(False)
     ax2.zaxis.set_major_formatter(
         mticker.FuncFormatter(lambda v,_: f"{int(v):,}名"))
@@ -375,10 +385,10 @@ def chart_5():
     ax2.set_zlim(0, max(pax)*1.55)
     ax2.view_init(elev=22, azim=-55)
     ax2.set_title("来客数", color=c("TEXT"),
-                  fontsize=14, fontweight='bold', pad=8)
+                  fontsize=24, fontweight='bold', pad=8)
 
     fig.suptitle("昼食 vs 夕食 比較",
-                 color=c("TEXT"), fontsize=15, fontweight="bold")
+                 color=c("TEXT"), fontsize=25, fontweight="bold")
     fig.tight_layout(pad=0.5)
     return buf(fig)
 
@@ -405,20 +415,22 @@ def chart_6():
             neon_bar3d(ax, xi, 0, v, dx=dx, dy=dy, col=col)
             ax.text(xi+dx/2, dy+0.1, v*1.07,
                     f"{v/10000:.1f}万",
-                    ha='center', va='bottom', fontsize=11,
+                    ha='center', va='bottom', fontsize=21,
                     color=c("TEXT"), fontweight='bold')
 
         ax.set_xticks([i+dx/2 for i in range(len(names))])
-        ax.set_xticklabels(names, fontsize=10, color='white')  # 商品名は白
+        ax.set_xticklabels(names, fontsize=20, color='white')
+        for t in ax.get_xticklabels():
+            t.set_color('white')
         ax.yaxis.set_visible(False)
         z_万(ax)
-        ax.set_zlabel("売上", color='white', fontsize=11, labelpad=6)
+        ax.set_zlabel("売上", color='white', fontsize=21, labelpad=6)
         ax.set_xlim(-0.5, len(names)+0.5)
         ax.set_ylim(-0.3, 1.5)
         ax.set_zlim(0, max_v*1.45)
         ax.view_init(elev=22, azim=-55)
         ax.set_title(title, color=c("TEXT"),
-                     fontsize=13, fontweight="bold", pad=8)
+                     fontsize=23, fontweight="bold", pad=8)
 
     _rank3d(ax1, top_food,  c("C4"), "FOOD Top6")
     _rank3d(ax2, top_drink, c("C1"), "DRINK Top6")
@@ -474,8 +486,8 @@ _shape(0,0,33.87,19.05, g1=COLORS["BG"],g2=(6,14,38),ang=130)
 _shape(0,0,33.87,2.20,  g1=(4,12,48),g2=(8,22,60),ang=0)
 _shape(0,2.18,33.87,0.05, g1=(0,60,150),g2=COLORS["C1"],ang=0)
 
-_txt(f"◈  {TITLE}", 0.4,0.10,20,1.2, size=23, bold=True, col="C1")   # +5pt
-_txt(SUBTITLE,       0.4,1.32,20,0.75, size=13, col="SUB")             # +5pt
+_txt(f"◈  {TITLE}", 0.4,0.10,20,1.2, size=33, bold=True, col="C1")
+_txt(SUBTITLE,       0.4,1.32,20,0.75, size=23, col="SUB")
 
 # KPI カード（3枚・幅3.85cm）
 kx0=22.0; kw=3.85; kg=0.12
@@ -484,9 +496,9 @@ for i, k in enumerate(KPI_ITEMS):
     _shape(lx,0.12,kw,2.0, g1=(6,18,50),g2=(4,12,38),
            border=COLORS[k["color"]],bw=0.75)
     _txt(k["label"], lx+0.12,0.18,kw-0.24,0.65,
-         size=12, col="SUB", align=PP_ALIGN.CENTER)                     # +5pt
+         size=22, col="SUB", align=PP_ALIGN.CENTER)
     _txt(k["value"], lx+0.12,0.82,kw-0.24,1.0,
-         size=16, bold=True, col=k["color"], align=PP_ALIGN.CENTER)     # +5pt
+         size=26, bold=True, col=k["color"], align=PP_ALIGN.CENTER)
 
 # チャート配置（3×2）
 R1  = 2.80
@@ -501,15 +513,15 @@ lbls2 = ["② 曜日別 平均売上", "⑤ 昼食 vs 夕食",  "⑥ 商品ラ�
 for (lx,lw), im, lb in zip(row1, [charts[0],charts[2],charts[3]], lbls1):
     _shape(lx,R1,lw,RH, g1=(5,11,30),g2=(3,9,25),border=COLORS["C1"],bw=0.6)
     _img(im,lx,R1,lw,RH)
-    _txt(lb, lx+0.15,R1-0.44,lw,0.4, size=12, bold=True, col="C7")    # +5pt
+    _txt(lb, lx+0.15,R1-0.44,lw,0.4, size=22, bold=True, col="C7")
 
 for (lx,lw), im, lb in zip(row2, [charts[1],charts[4],charts[5]], lbls2):
     _shape(lx,R2,lw,RH, g1=(5,11,30),g2=(3,9,25),border=COLORS["C1"],bw=0.6)
     _img(im,lx,R2,lw,RH)
-    _txt(lb, lx+0.15,R2-0.44,lw,0.4, size=12, bold=True, col="C7")    # +5pt
+    _txt(lb, lx+0.15,R2-0.44,lw,0.4, size=22, bold=True, col="C7")
 
 _txt("データソース: ★営業日報2026年5月.xlsx  ／  Generated by may2026_dashboard.py",
-     0.3,18.72,33.0,0.33, size=12, col="SUB", italic=True)             # +5pt
+     0.3,18.72,33.0,0.33, size=22, col="SUB", italic=True)
 
 prs.save(OUTPUT)
 print(f"完了: {OUTPUT}")

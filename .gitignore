@@ -1,5 +1,6 @@
 /data/
 *.xlsx
+!/frontend/public/data/*.xlsx
 !/frontend/public/data/*.json
 __pycache__/
 *.pyc

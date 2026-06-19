@@ -6,6 +6,12 @@
 使い方:
     python create_daily.py 2026 5
     → frontend/public/data/daily_2026_5.xlsx を出力
+
+行構造（データシート）:
+  行20-24 : アクアコイン（1件1行 → 日毎に合算）
+  行25-34 : ペイペイ    （1件1行 → 日毎に合算）
+  行35-36 : ふるさと納税（1件1行 → 日毎に合算）
+  行37    : 売掛金 計   （既に日次合計）
 """
 import argparse
 from pathlib import Path
@@ -27,34 +33,38 @@ THIN     = Side(style="thin", color="0F2D4A")
 BORDER   = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 CENTER   = Alignment(horizontal="center", vertical="center")
 RIGHT    = Alignment(horizontal="right",  vertical="center")
-LEFT     = Alignment(horizontal="left",   vertical="center")
 
+# (列キー, 列幅, 配置, 書式)
 COLUMNS = [
-    ("日付",        10, CENTER, None),
-    ("日",           5, CENTER, '0'),
-    ("曜日",         6, CENTER, '@'),
-    ("定休",         6, CENTER, '@'),
-    ("祝日",         6, CENTER, '@'),
-    ("総売上高",    14, RIGHT,  '#,##0'),
-    ("純売上高",    14, RIGHT,  '#,##0'),
-    ("現金",        14, RIGHT,  '#,##0'),
-    ("JCB",         14, RIGHT,  '#,##0'),
-    ("千葉銀行",    14, RIGHT,  '#,##0'),
-    ("アクアコイン",14, RIGHT,  '#,##0'),
-    ("PayPay",      12, RIGHT,  '#,##0'),
-    ("売掛金",      12, RIGHT,  '#,##0'),
-    ("FOOD",        14, RIGHT,  '#,##0'),
-    ("DRINK",       14, RIGHT,  '#,##0'),
-    ("売店",        12, RIGHT,  '#,##0'),
-    ("その他",      12, RIGHT,  '#,##0'),
-    ("昼食客数",    10, RIGHT,  '#,##0'),
-    ("夕食客数",    10, RIGHT,  '#,##0'),
-    ("昼食売上",    14, RIGHT,  '#,##0'),
-    ("夕食売上",    14, RIGHT,  '#,##0'),
+    ("日付",         10, CENTER, None),
+    ("日",            5, CENTER, '0'),
+    ("曜日",          6, CENTER, '@'),
+    ("定休",          6, CENTER, '@'),
+    ("祝日",          6, CENTER, '@'),
+    ("総売上高",     14, RIGHT,  '#,##0'),
+    ("純売上高",     14, RIGHT,  '#,##0'),
+    ("現金",         14, RIGHT,  '#,##0'),
+    ("JCB",          14, RIGHT,  '#,##0'),
+    ("千葉銀行",     14, RIGHT,  '#,##0'),
+    ("アクアコイン", 14, RIGHT,  '#,##0'),
+    ("PayPay",       12, RIGHT,  '#,##0'),
+    ("ふるさと納税", 14, RIGHT,  '#,##0'),
+    ("売掛金",       12, RIGHT,  '#,##0'),
+    ("FOOD",         14, RIGHT,  '#,##0'),
+    ("DRINK",        14, RIGHT,  '#,##0'),
+    ("売店",         12, RIGHT,  '#,##0'),
+    ("その他",       12, RIGHT,  '#,##0'),
+    ("昼食客数",     10, RIGHT,  '#,##0'),
+    ("夕食客数",     10, RIGHT,  '#,##0'),
+    ("昼食売上",     14, RIGHT,  '#,##0'),
+    ("夕食売上",     14, RIGHT,  '#,##0'),
 ]
-SUM_KEYS = {"総売上高","純売上高","現金","JCB","千葉銀行","アクアコイン",
-            "PayPay","売掛金","FOOD","DRINK","売店","その他",
-            "昼食客数","夕食客数","昼食売上","夕食売上"}
+SUM_KEYS = {
+    "総売上高", "純売上高", "現金", "JCB", "千葉銀行",
+    "アクアコイン", "PayPay", "ふるさと納税", "売掛金",
+    "FOOD", "DRINK", "売店", "その他",
+    "昼食客数", "夕食客数", "昼食売上", "夕食売上",
+}
 
 
 def load_daily(year: int, month: int) -> list[dict]:
@@ -67,29 +77,38 @@ def load_daily(year: int, month: int) -> list[dict]:
 
     COL0, COLS = 6, 31
 
-    def row_vals(r):
+    def row_vals(r: int) -> list:
         return [ws.cell(row=r, column=COL0 + i).value for i in range(COLS)]
 
+    def sum_rows(r_start: int, r_end: int) -> list[int]:
+        """複数行を日付列ごとに合算（1件1行の個別入力を集計）"""
+        totals = [0] * COLS
+        for r in range(r_start, r_end + 1):
+            for i, v in enumerate(row_vals(r)):
+                totals[i] += int(v or 0)
+        return totals
+
     dates    = row_vals(1)
-    hol_flg  = row_vals(2)   # 定休FLG（"休"）
-    holi_flg = row_vals(3)   # 祝日FLG（"祝"）
-    wdays    = row_vals(4)   # 曜日
-    net_s    = row_vals(5)   # 純売上高
-    cash_r   = row_vals(7)   # 現金
-    total_s  = row_vals(10)  # 総売上高（税込）
-    jcb_r    = row_vals(15)  # JCB
-    chiba_r  = row_vals(16)  # 千葉銀行
-    aqua_r   = row_vals(20)  # アクアコイン
-    paypay_r = row_vals(25)  # PayPay
-    kake_r   = row_vals(37)  # 売掛金
-    food_r   = row_vals(41)  # FOOD
-    drink_r  = row_vals(42)  # DRINK
-    baiten_r = row_vals(43)  # 売店
-    sonota_r = row_vals(44)  # その他
-    lpax_r   = row_vals(47)  # 昼食客数
-    dpax_r   = row_vals(48)  # 夕食客数
-    lamt_r   = row_vals(50)  # 昼食売上
-    damt_r   = row_vals(51)  # 夕食売上
+    hol_flg  = row_vals(2)    # 定休FLG（"休"）
+    holi_flg = row_vals(3)    # 祝日FLG（"祝"）
+    wdays    = row_vals(4)    # 曜日
+    net_s    = row_vals(5)    # 純売上高
+    cash_r   = row_vals(7)    # 現金
+    total_s  = row_vals(10)   # 総売上高（税込）
+    jcb_r    = row_vals(15)   # JCB
+    chiba_r  = row_vals(16)   # 千葉銀行
+    aqua_r   = sum_rows(20, 24)  # アクアコイン（行20-24 合算）
+    paypay_r = sum_rows(25, 34)  # PayPay    （行25-34 合算）
+    furusato = sum_rows(35, 36)  # ふるさと納税（行35-36 合算）
+    kake_r   = row_vals(37)   # 売掛金 計（既に日次合計）
+    food_r   = row_vals(41)   # FOOD
+    drink_r  = row_vals(42)   # DRINK
+    baiten_r = row_vals(43)   # 売店
+    sonota_r = row_vals(44)   # その他
+    lpax_r   = row_vals(47)   # 昼食客数
+    dpax_r   = row_vals(48)   # 夕食客数
+    lamt_r   = row_vals(50)   # 昼食売上
+    damt_r   = row_vals(51)   # 夕食売上
 
     rows = []
     for i, d in enumerate(dates):
@@ -107,8 +126,9 @@ def load_daily(year: int, month: int) -> list[dict]:
             "現金":         int(cash_r[i]   or 0),
             "JCB":          int(jcb_r[i]    or 0),
             "千葉銀行":     int(chiba_r[i]  or 0),
-            "アクアコイン": int(aqua_r[i]   or 0),
-            "PayPay":       int(paypay_r[i] or 0),
+            "アクアコイン": aqua_r[i],
+            "PayPay":       paypay_r[i],
+            "ふるさと納税": furusato[i],
             "売掛金":       int(kake_r[i]   or 0),
             "FOOD":         int(food_r[i]   or 0),
             "DRINK":        int(drink_r[i]  or 0),
@@ -127,7 +147,7 @@ def write_excel(year: int, month: int, rows: list[dict], out_path: Path):
     ws = wb.active
     ws.title = f"{year}年{month}月_日次データ"
     ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "A3"   # ヘッダー固定
+    ws.freeze_panes = "A3"
 
     n_cols = len(COLUMNS)
 
@@ -155,10 +175,8 @@ def write_excel(year: int, month: int, rows: list[dict], out_path: Path):
         for ci, (key, _, align, fmt) in enumerate(COLUMNS, 1):
             val = row[key]
             c   = ws.cell(row=ri, column=ci, value=val)
-            c.font      = VAL_FONT
-            c.fill      = fill
-            c.border    = BORDER
-            c.alignment = align
+            c.font = VAL_FONT; c.fill = fill
+            c.border = BORDER; c.alignment = align
             if fmt:
                 c.number_format = fmt
         ws.row_dimensions[ri].height = 18
@@ -174,11 +192,9 @@ def write_excel(year: int, month: int, rows: list[dict], out_path: Path):
         if key in SUM_KEYS:
             total = sum(r[key] for r in rows)
             c = ws.cell(row=last, column=ci, value=total)
-            c.font          = TOT_FONT
-            c.fill          = HDR_FILL
-            c.border        = BORDER
+            c.font = TOT_FONT; c.fill = HDR_FILL
+            c.border = BORDER; c.alignment = RIGHT
             c.number_format = fmt or '#,##0'
-            c.alignment     = RIGHT
     ws.row_dimensions[last].height = 20
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -191,11 +207,19 @@ def main():
     parser.add_argument("month", type=int, help="月（例: 5）")
     args = parser.parse_args()
 
+    out_path = OUT_DIR / f"daily_{args.year}_{args.month}.xlsx"
+
+    # 既存ファイルの上書き確認
+    if out_path.exists():
+        ans = input(f"\n{out_path.name} は既に存在します。上書きしますか？ [y/N]: ").strip().lower()
+        if ans != "y":
+            print("キャンセルしました。")
+            return
+
     print(f"読み込み中: ★営業日報{args.year}年{args.month}月.xlsx")
     rows = load_daily(args.year, args.month)
     print(f"  {len(rows)}日分のデータを取得")
 
-    out_path = OUT_DIR / f"daily_{args.year}_{args.month}.xlsx"
     write_excel(args.year, args.month, rows, out_path)
     print(f"出力完了: {out_path}")
 

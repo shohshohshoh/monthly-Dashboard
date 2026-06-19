@@ -67,6 +67,35 @@ SUM_KEYS = {
 }
 
 
+def load_shohin(year: int, month: int) -> list[dict]:
+    """商品別シートから日次ランキングデータを読み込む"""
+    path = DATA_DIR / f"★営業日報{year}年{month}月.xlsx"
+    wb   = openpyxl.load_workbook(path, data_only=True)
+    ws   = wb["商品別"]
+
+    rows = []
+    for r in range(3, ws.max_row + 1):
+        d = ws.cell(row=r, column=1).value
+        if d is None:
+            continue
+        day = d.day if hasattr(d, "day") else int(d)
+        rows.append({
+            "日付":   f"{year}/{month:02d}/{day:02d}",
+            "日":     day,
+            "曜日":   ws.cell(row=r, column=3).value or "",
+            "順位":   ws.cell(row=r, column=4).value or "",
+            "F商品名": ws.cell(row=r, column=5).value or "",
+            "F単価":   int(ws.cell(row=r, column=6).value or 0),
+            "F数量":   int(ws.cell(row=r, column=7).value or 0),
+            "F金額":   int(ws.cell(row=r, column=8).value or 0),
+            "D商品名": ws.cell(row=r, column=9).value or "",
+            "D単価":   int(ws.cell(row=r, column=10).value or 0),
+            "D数量":   int(ws.cell(row=r, column=11).value or 0),
+            "D金額":   int(ws.cell(row=r, column=12).value or 0),
+        })
+    return rows
+
+
 def load_daily(year: int, month: int) -> list[dict]:
     path = DATA_DIR / f"★営業日報{year}年{month}月.xlsx"
     if not path.exists():
@@ -142,7 +171,8 @@ def load_daily(year: int, month: int) -> list[dict]:
     return rows
 
 
-def write_excel(year: int, month: int, rows: list[dict], out_path: Path):
+def write_excel(year: int, month: int, rows: list[dict],
+                shohin: list[dict], out_path: Path):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = f"{year}年{month}月_日次データ"
@@ -197,8 +227,95 @@ def write_excel(year: int, month: int, rows: list[dict], out_path: Path):
             c.number_format = fmt or '#,##0'
     ws.row_dimensions[last].height = 20
 
+    add_shohin_sheet(wb, year, month, shohin)
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     wb.save(out_path)
+
+
+def add_shohin_sheet(wb: openpyxl.Workbook, year: int, month: int, rows: list[dict]):
+    """商品別シートを追加"""
+    ws = wb.create_sheet("商品別")
+    ws.sheet_view.showGridLines = False
+    ws.freeze_panes = "A3"
+
+    # 列定義: (キー, 幅, 配置, 書式)
+    SCOLS = [
+        ("日付",   10, CENTER, None),
+        ("日",      5, CENTER, '0'),
+        ("曜日",    6, CENTER, '@'),
+        ("順位",    6, CENTER, '@'),
+        ("F商品名", 22, Alignment(horizontal="left", vertical="center"), '@'),
+        ("F単価",  10, RIGHT,  '#,##0'),
+        ("F数量",   8, RIGHT,  '#,##0'),
+        ("F金額",  12, RIGHT,  '#,##0'),
+        ("D商品名", 22, Alignment(horizontal="left", vertical="center"), '@'),
+        ("D単価",  10, RIGHT,  '#,##0'),
+        ("D数量",   8, RIGHT,  '#,##0'),
+        ("D金額",  12, RIGHT,  '#,##0'),
+    ]
+    n_cols = len(SCOLS)
+
+    # カテゴリヘッダー行
+    food_font  = Font(bold=True, color="FF9F1C", size=10)
+    drink_font = Font(bold=True, color="00B4FF", size=10)
+    ws.merge_cells("E1:H1")
+    fc = ws["E1"]
+    fc.value = "FOOD"; fc.font = food_font
+    fc.fill = HDR_FILL; fc.alignment = CENTER; fc.border = BORDER
+    ws.merge_cells("I1:L1")
+    dc = ws["I1"]
+    dc.value = "DRINK"; dc.font = drink_font
+    dc.fill = HDR_FILL; dc.alignment = CENTER; dc.border = BORDER
+    for ci in range(1, 5):
+        c = ws.cell(row=1, column=ci)
+        c.fill = HDR_FILL; c.border = BORDER
+    ws.row_dimensions[1].height = 20
+
+    # ヘッダー行
+    for ci, (lbl, width, _, _) in enumerate(SCOLS, 1):
+        ws.column_dimensions[get_column_letter(ci)].width = width
+        c = ws.cell(row=2, column=ci, value=lbl)
+        c.font = HDR_FONT; c.fill = HDR_FILL
+        c.alignment = CENTER; c.border = BORDER
+    ws.row_dimensions[2].height = 20
+
+    # データ行（日付が変わるたびに色を交互）
+    day_colors = {}
+    color_idx  = 0
+    for row in rows:
+        if row["日"] not in day_colors:
+            day_colors[row["日"]] = color_idx % 2
+            color_idx += 1
+
+    for ri, row in enumerate(rows, start=3):
+        fill = ROW_FILL if day_colors[row["日"]] == 0 else ALT_FILL
+        for ci, (key, _, align, fmt) in enumerate(SCOLS, 1):
+            val = row[key]
+            c   = ws.cell(row=ri, column=ci, value=val)
+            c.font = VAL_FONT; c.fill = fill
+            c.border = BORDER; c.alignment = align
+            if fmt and fmt != '@':
+                c.number_format = fmt
+        ws.row_dimensions[ri].height = 18
+
+    # FOOD/DRINK の合計行
+    last = 3 + len(rows)
+    ws.merge_cells(f"A{last}:D{last}")
+    tc = ws.cell(row=last, column=1, value="合 計")
+    tc.font = HDR_FONT; tc.fill = HDR_FILL
+    tc.alignment = CENTER; tc.border = BORDER
+
+    for ci, key in [(7, "F数量"), (8, "F金額"), (11, "D数量"), (12, "D金額")]:
+        total = sum(r[key] for r in rows)
+        c = ws.cell(row=last, column=ci, value=total)
+        c.font = TOT_FONT; c.fill = HDR_FILL
+        c.border = BORDER; c.alignment = RIGHT
+        c.number_format = '#,##0'
+    for ci in [5, 6, 9, 10]:
+        c = ws.cell(row=last, column=ci)
+        c.fill = HDR_FILL; c.border = BORDER
+    ws.row_dimensions[last].height = 20
 
 
 def main():
@@ -217,10 +334,12 @@ def main():
             return
 
     print(f"読み込み中: ★営業日報{args.year}年{args.month}月.xlsx")
-    rows = load_daily(args.year, args.month)
-    print(f"  {len(rows)}日分のデータを取得")
+    rows   = load_daily(args.year, args.month)
+    shohin = load_shohin(args.year, args.month)
+    print(f"  日次データ: {len(rows)}日分")
+    print(f"  商品別データ: {len(shohin)}行")
 
-    write_excel(args.year, args.month, rows, out_path)
+    write_excel(args.year, args.month, rows, shohin, out_path)
     print(f"出力完了: {out_path}")
 
 

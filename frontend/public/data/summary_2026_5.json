@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "year": 2026,
+    "month": 5,
+    "label": "2026年5月",
+    "filename": "★営業日報2026年5月.xlsx",
+    "working_days": 27,
+    "closed_days": 4
+  },
+  "kpi": {
+    "total_sales": 20989657,
+    "food_sales": 14975700,
+    "drink_sales": 3000230,
+    "baiten_sales": 230260,
+    "sonota_sales": 2783467,
+    "lunch_pax": 2520,
+    "dinner_pax": 1534,
+    "lunch_amt": 9681482,
+    "dinner_amt": 11308175
+  },
+  "payment": [
+    { "label": "現金",         "amount": 8692051 },
+    { "label": "JCB",          "amount": 3806445 },
+    { "label": "千葉銀行",     "amount": 5643149 },
+    { "label": "アクアコイン", "amount": 567876  },
+    { "label": "PayPay",       "amount": 1076179 },
+    { "label": "売掛金",       "amount": 1215401 }
+  ],
+  "category": [
+    { "label": "FOOD",   "amount": 14975700 },
+    { "label": "DRINK",  "amount": 3000230  },
+    { "label": "売店",   "amount": 230260   },
+    { "label": "その他", "amount": 2783467  }
+  ],
+  "daily": [
+    { "day": 1,  "weekday": "金", "is_closed": false, "sales": 780000  },
+    { "day": 2,  "weekday": "土", "is_closed": false, "sales": 920000  },
+    { "day": 3,  "weekday": "日", "is_closed": false, "sales": 1050000 },
+    { "day": 4,  "weekday": "月", "is_closed": true,  "sales": 0       },
+    { "day": 5,  "weekday": "火", "is_closed": false, "sales": 1100000 },
+    { "day": 6,  "weekday": "水", "is_closed": false, "sales": 680000  },
+    { "day": 7,  "weekday": "木", "is_closed": false, "sales": 710000  },
+    { "day": 8,  "weekday": "金", "is_closed": false, "sales": 760000  },
+    { "day": 9,  "weekday": "土", "is_closed": false, "sales": 890000  },
+    { "day": 10, "weekday": "日", "is_closed": false, "sales": 970000  },
+    { "day": 11, "weekday": "月", "is_closed": true,  "sales": 0       },
+    { "day": 12, "weekday": "火", "is_closed": false, "sales": 650000  },
+    { "day": 13, "weekday": "水", "is_closed": false, "sales": 620000  },
+    { "day": 14, "weekday": "木", "is_closed": false, "sales": 700000  },
+    { "day": 15, "weekday": "金", "is_closed": false, "sales": 810000  },
+    { "day": 16, "weekday": "土", "is_closed": false, "sales": 950000  },
+    { "day": 17, "weekday": "日", "is_closed": false, "sales": 1020000 },
+    { "day": 18, "weekday": "月", "is_closed": true,  "sales": 0       },
+    { "day": 19, "weekday": "火", "is_closed": false, "sales": 630000  },
+    { "day": 20, "weekday": "水", "is_closed": false, "sales": 590000  },
+    { "day": 21, "weekday": "木", "is_closed": false, "sales": 670000  },
+    { "day": 22, "weekday": "金", "is_closed": false, "sales": 750000  },
+    { "day": 23, "weekday": "土", "is_closed": false, "sales": 880000  },
+    { "day": 24, "weekday": "日", "is_closed": false, "sales": 990000  },
+    { "day": 25, "weekday": "月", "is_closed": true,  "sales": 0       },
+    { "day": 26, "weekday": "火", "is_closed": false, "sales": 610000  },
+    { "day": 27, "weekday": "水", "is_closed": false, "sales": 580000  },
+    { "day": 28, "weekday": "木", "is_closed": false, "sales": 640000  },
+    { "day": 29, "weekday": "金", "is_closed": false, "sales": 720000  },
+    { "day": 30, "weekday": "土", "is_closed": false, "sales": 860000  },
+    { "day": 31, "weekday": "日", "is_closed": false, "sales": 930000  }
+  ],
+  "top_food": [
+    { "name": "ランチコース",   "amount": 3200000 },
+    { "name": "ディナーコース", "amount": 2800000 },
+    { "name": "単品料理A",      "amount": 1900000 },
+    { "name": "単品料理B",      "amount": 1500000 },
+    { "name": "デザート",       "amount": 980000  },
+    { "name": "前菜盛合せ",     "amount": 750000  }
+  ],
+  "top_drink": [
+    { "name": "生ビール",     "amount": 980000 },
+    { "name": "ソフトドリンク", "amount": 620000 },
+    { "name": "ワイン",       "amount": 580000 },
+    { "name": "日本酒",       "amount": 420000 },
+    { "name": "カクテル",     "amount": 310000 },
+    { "name": "ウイスキー",   "amount": 240000 }
+  ]
+}

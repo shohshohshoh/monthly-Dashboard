@@ -23,6 +23,54 @@ ROOT     = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
 OUT_DIR  = ROOT / "frontend" / "public" / "data"
 
+# 木更津の天気データ（tenki.jp より取得）
+# 形式: {year: {month: {day: (天気, 天気概況)}}}
+WEATHER_DB = {
+    2026: {
+        5: {
+             1: ("雨", "雨のち晴"),
+             2: ("晴", "晴のち曇"),
+             3: ("曇", "曇のち雨"),
+             4: ("曇", "曇時々雨"),
+             5: ("曇", "曇のち晴"),
+             6: ("晴", "晴"),
+             7: ("曇", "曇一時雨"),
+             8: ("曇", "曇"),
+             9: ("曇", "曇のち晴"),
+            10: ("晴", "晴"),
+            11: ("晴", "晴"),
+            12: ("晴", "晴"),
+            13: ("晴", "晴のち曇"),
+            14: ("曇", "曇"),
+            15: ("曇", "曇のち晴"),
+            16: ("晴", "晴"),
+            17: ("晴", "晴"),
+            18: ("晴", "晴"),
+            19: ("晴", "晴のち曇"),
+            20: ("曇", "曇のち雨"),
+            21: ("雨", "雨"),
+            22: ("雨", "雨のち曇"),
+            23: ("曇", "曇"),
+            24: ("曇", "曇一時雨"),
+            25: ("曇", "曇時々晴"),
+            26: ("曇", "曇"),
+            27: ("曇", "曇"),
+            28: ("曇", "曇"),
+            29: ("晴", "晴時々曇"),
+            30: ("晴", "晴のち曇"),
+            31: ("曇", "曇のち晴"),
+        }
+    }
+}
+
+def get_weather(year: int, month: int, day: int) -> tuple[str, str]:
+    """天気と天気概況を返す。未登録の場合は空文字"""
+    try:
+        return WEATHER_DB[year][month][day]
+    except KeyError:
+        return ("", "")
+
+
 HDR_FILL = PatternFill("solid", fgColor="08123A")
 HDR_FONT = Font(bold=True, color="00B4FF", size=10)
 VAL_FONT = Font(color="D0E8FF", size=10)
@@ -41,6 +89,8 @@ COLUMNS = [
     ("曜日",          6, CENTER, '@'),
     ("定休",          6, CENTER, '@'),
     ("祝日",          6, CENTER, '@'),
+    ("天気",          6, CENTER, '@'),
+    ("天気概況",     14, CENTER, '@'),
     ("総売上高",     14, RIGHT,  '#,##0'),
     ("純売上高",     14, RIGHT,  '#,##0'),
     ("現金",         14, RIGHT,  '#,##0'),
@@ -144,12 +194,15 @@ def load_daily(year: int, month: int) -> list[dict]:
         if d is None:
             continue
         day = d.day if hasattr(d, "day") else int(d)
+        tenki, tenki_gaikyo = get_weather(year, month, day)
         rows.append({
             "日付":         f"{year}/{month:02d}/{day:02d}",
             "日":           day,
             "曜日":         wdays[i] or "",
             "定休":         "休" if hol_flg[i] == "休" else "",
             "祝日":         holi_flg[i] or "",
+            "天気":         tenki,
+            "天気概況":     tenki_gaikyo,
             "総売上高":     int(total_s[i]  or 0),
             "純売上高":     int(net_s[i]    or 0),
             "現金":         int(cash_r[i]   or 0),
@@ -213,7 +266,7 @@ def write_excel(year: int, month: int, rows: list[dict],
 
     # 合計行
     last = 3 + len(rows)
-    ws.merge_cells(f"A{last}:E{last}")
+    ws.merge_cells(f"A{last}:G{last}")
     tc = ws.cell(row=last, column=1, value="合 計")
     tc.font = HDR_FONT; tc.fill = HDR_FILL
     tc.alignment = CENTER; tc.border = BORDER

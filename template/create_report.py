@@ -517,7 +517,7 @@ def chart_6(daily):
 
 
 def chart_7(shohin):
-    """⑦ FOOD / DRINK ランキング Top10（グラデバー・数量テキスト・順位バッジ）"""
+    """⑦ FOOD / DRINK 売れ筋ランキング Top10（売上金額バー・数量をテキスト表示）"""
     def aggregate(key_name, key_qty, key_amt):
         m = defaultdict(lambda: {"数量": 0, "金額": 0})
         for r in shohin:
@@ -526,69 +526,41 @@ def chart_7(shohin):
                 m[r[key_name]]["金額"] += r[key_amt]
         top = sorted(m.items(), key=lambda x: x[1]["金額"], reverse=True)[:10]
         return (
-            [x[0][:14] for x in top][::-1],
+            [x[0][:12] for x in top][::-1],
             [x[1]["金額"] / 10000 for x in top][::-1],
-            [x[1]["数量"]         for x in top][::-1],
+            [x[1]["数量"] for x in top][::-1],
         )
 
     f_names, f_amts, f_qtys = aggregate("F商品名", "F数量", "F金額")
     d_names, d_amts, d_qtys = aggregate("D商品名", "D数量", "D金額")
 
-    fig, (ax_f, ax_d) = plt.subplots(1, 2, figsize=(14, 6))
+    fig, (ax_f, ax_d) = plt.subplots(1, 2, figsize=(13, 5.5))
     fig.patch.set_facecolor(C["bg"])
 
-    def draw_ranking(ax, names, amts, qtys, color_hi, color_lo, title, unit):
+    def _hbar_qty(ax, names, amts, qtys, cm_name, color_title, title, unit):
         dark_ax(ax)
-        ax.spines["bottom"].set_visible(False)
-        ax.spines["left"].set_visible(False)
-        ax.tick_params(axis="y", length=0)
-        ax.grid(axis="x", color=C["grid"], ls="--", lw=0.5, alpha=0.5)
-        ax.grid(axis="y", visible=False)
-
         n = len(names)
-        cmap = LinearSegmentedColormap.from_list("r", [color_lo, color_hi])
+        grad = [getattr(plt.cm, cm_name)(0.35 + 0.65 * i / max(n - 1, 1))
+                for i in range(n)]
+        bars = ax.barh(names, amts, color=grad, edgecolor=C["bg"])
         max_a = max(amts) if amts else 1
-
-        for i, (name, a, q) in enumerate(zip(names, amts, qtys)):
-            rank = n - i  # 1位=最上位
-            co = cmap(i / max(n - 1, 1))
-
-            # グラデバー
-            ax.barh(i, a, color=co, edgecolor=C["bg"],
-                    height=0.62, linewidth=0.6, zorder=2)
-
-            # バー内に商品名
-            ax.text(max_a * 0.02, i, f"  {name}",
-                    va="center", ha="left", fontsize=8.5,
-                    color="white", fontweight="bold", zorder=3)
-
-            # バー右に金額と数量
-            ax.text(a + max_a * 0.015, i,
+        for bar, a, q in zip(bars, amts, qtys):
+            ax.text(bar.get_width() + max_a * 0.015,
+                    bar.get_y() + bar.get_height() / 2,
                     f"¥{a:.1f}万  {q:,}{unit}",
-                    va="center", ha="left", fontsize=8, color=C["text"], zorder=3)
+                    va="center", fontsize=8, color=C["text"])
+        ax.set_xlabel("売上金額（万円）", color=C["text"])
+        ax.xaxis.label.set_color(C["text"])
+        ax.set_xlim(0, max_a * 1.6)
+        ax.set_title(title, color=color_title, fontsize=11, fontweight="bold")
 
-            # 順位バッジ（左端）
-            badge_co = [C["c6"], C["c4"], C["c1"]][min(rank - 1, 2)] if rank <= 3 else C["sub"]
-            ax.text(-max_a * 0.055, i, f"#{rank}",
-                    va="center", ha="center", fontsize=7.5,
-                    color=badge_co, fontweight="bold", zorder=3,
-                    bbox=dict(boxstyle="round,pad=0.2", facecolor=C["bg"],
-                              edgecolor=badge_co, linewidth=0.8))
-
-        ax.set_xlim(-max_a * 0.12, max_a * 1.60)
-        ax.set_ylim(-0.6, n - 0.4)
-        ax.set_yticks([])
-        ax.set_xlabel("売上金額（万円）", color=C["sub"], fontsize=9)
-        ax.xaxis.label.set_color(C["sub"])
-        ax.set_title(title, color=color_hi, fontsize=12, fontweight="bold", pad=10)
-
-    draw_ranking(ax_f, f_names, f_amts, f_qtys,
-                 C["c4"], "#3a1a00", "FOOD 売上金額 Top10", "個")
-    draw_ranking(ax_d, d_names, d_amts, d_qtys,
-                 C["c1"], "#001a3a", "DRINK 売上金額 Top10", "杯")
+    _hbar_qty(ax_f, f_names, f_amts, f_qtys, "YlOrRd", C["c4"],
+              "FOOD 売上金額 Top10", "個")
+    _hbar_qty(ax_d, d_names, d_amts, d_qtys, "Blues",  C["c1"],
+              "DRINK 売上金額 Top10", "杯")
 
     fig.suptitle("⑦ FOOD / DRINK 売れ筋ランキング Top10",
-                 color=C["text"], fontsize=14, fontweight="bold", y=1.01)
+                 color=C["text"], fontsize=14, fontweight="bold")
     fig.tight_layout()
     return to_img(fig)
 
@@ -646,7 +618,7 @@ CHART_META = [
     ("④ カテゴリ別 構成",         ( 8, 6.0), "円グラフ"),
     ("⑤ 昼食 vs 夕食",           ( 6, 5.5), "二重軸グラフ"),
     ("⑥ 天気別 売上分布",         (11, 5.5), "箱ひげ図 + 散布点"),
-    ("⑦ FOOD・DRINK ランキング",  (14, 6.0), "横棒グラフ"),
+    ("⑦ FOOD・DRINK ランキング",  (13, 5.5), "横棒グラフ"),
     ("⑨ 客単価 日次推移",         (12, 5.0), "折れ線グラフ（グロウ）"),
 ]
 

@@ -133,21 +133,27 @@ def load_data(year: int, month: int):
 # ══════════════════════════════════════════════════════════════
 
 def chart_1(daily):
-    """① 日次売上トレンド（総売上高のみ・折れ線 + 面）"""
-    op    = [d for d in daily if d["定休"] != "休"]
-    xs    = [d["日"] for d in op]
-    total = [d["総売上高"] / 10000 for d in op]
-    avg   = np.mean(total)
+    """① 日次売上トレンド（総売上高・昼食売上・夕食売上）"""
+    op     = [d for d in daily if d["定休"] != "休"]
+    xs     = [d["日"] for d in op]
+    total  = [d["総売上高"] / 10000 for d in op]
+    lunch  = [d["昼食売上"]  / 10000 for d in op]
+    dinner = [d["夕食売上"]  / 10000 for d in op]
+    avg    = np.mean(total)
 
     fig, ax = plt.subplots(figsize=(11, 4.5))
     dark_ax(ax, fig)
-    ax.fill_between(xs, total, alpha=0.15, color=C["c1"])
-    ax.plot(xs, total, color=C["c1"], lw=2.2, marker="o", ms=4, label="総売上高")
-    ax.axhline(avg, color=C["c4"], lw=1.4, ls=":", label=f"平均 {avg:.0f}万円")
+    ax.fill_between(xs, total,  alpha=0.12, color=C["c1"])
+    ax.fill_between(xs, lunch,  alpha=0.10, color=C["c4"])
+    ax.fill_between(xs, dinner, alpha=0.10, color=C["c2"])
+    ax.plot(xs, total,  color=C["c1"], lw=2.2, marker="o",  ms=4, label="総売上高")
+    ax.plot(xs, lunch,  color=C["c4"], lw=1.6, marker="^",  ms=4, label="昼食売上")
+    ax.plot(xs, dinner, color=C["c2"], lw=1.6, marker="s",  ms=4, label="夕食売上")
+    ax.axhline(avg, color=C["c3"], lw=1.2, ls=":", label=f"総売上平均 {avg:.0f}万円")
     ax.set_xlabel("日", color=C["text"])
     ax.set_ylabel("売上（万円）", color=C["text"])
     ax.xaxis.label.set_color(C["text"]); ax.yaxis.label.set_color(C["text"])
-    ax.set_title("① 日次売上トレンド（総売上高）",
+    ax.set_title("① 日次売上トレンド",
                  color=C["text"], fontsize=13, fontweight="bold")
     ax.legend(facecolor=C["card"], edgecolor=C["grid"],
               labelcolor=C["text"], fontsize=9)
@@ -156,12 +162,11 @@ def chart_1(daily):
 
 
 def chart_2(daily):
-    """② 曜日別平均売上（日曜・祝日・振替 → 祝日グループ）"""
-    # 定休（休）を除外し、日曜 or 祝日フラグ → "祝日" に統合
-    order  = ["火", "水", "木", "金", "土", "祝日"]
-    colors = [C["c1"], C["c1"], C["c1"], C["c4"], C["c3"], C["c5"]]
+    """② 曜日別平均売上（昼食・夕食 積み上げ棒）"""
+    order = ["火", "水", "木", "金", "土", "祝日"]
 
-    wmap = defaultdict(list)
+    wmap_l = defaultdict(list)
+    wmap_d = defaultdict(list)
     for d in daily:
         if d["定休"] == "休":
             continue
@@ -170,216 +175,228 @@ def chart_2(daily):
         else:
             key = d["曜日"]
         if key in order:
-            wmap[key].append(d["総売上高"] / 10000)
+            wmap_l[key].append(d["昼食売上"]  / 10000)
+            wmap_d[key].append(d["夕食売上"] / 10000)
 
-    avgs = [np.mean(wmap[w]) if wmap[w] else 0 for w in order]
-    cnts = [len(wmap[w]) for w in order]
+    avgs_l = [np.mean(wmap_l[w]) if wmap_l[w] else 0 for w in order]
+    avgs_d = [np.mean(wmap_d[w]) if wmap_d[w] else 0 for w in order]
+    cnts   = [len(wmap_l[w]) for w in order]
+    totals = [l + d for l, d in zip(avgs_l, avgs_d)]
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
+    fig, ax = plt.subplots(figsize=(9, 5))
     dark_ax(ax, fig)
-    bars = ax.bar(order, avgs, color=colors, edgecolor=C["bg"], width=0.6)
-    for bar, v, n in zip(bars, avgs, cnts):
-        if v > 0:
-            ax.text(bar.get_x() + bar.get_width() / 2, v + max(avgs) * 0.02,
-                    f"{v:.0f}万\nn={n}", ha="center", va="bottom",
-                    fontsize=8.5, color=C["text"])
-    ax.set_ylabel("平均総売上高（万円）", color=C["text"])
-    ax.yaxis.label.set_color(C["text"])
-    ax.set_ylim(0, max(avgs) * 1.3)
+    ax.bar(order, avgs_l, color=C["c4"], label="昼食売上", edgecolor=C["bg"], width=0.6)
+    ax.bar(order, avgs_d, color=C["c1"], label="夕食売上",
+           bottom=avgs_l, edgecolor=C["bg"], width=0.6)
 
-    patches = [
-        mpatches.Patch(color=C["c1"], label="平日（火〜木）"),
-        mpatches.Patch(color=C["c4"], label="金曜日"),
-        mpatches.Patch(color=C["c3"], label="土曜日"),
-        mpatches.Patch(color=C["c5"], label="祝日（日・祝・振替）"),
-    ]
-    ax.legend(handles=patches, facecolor=C["card"], edgecolor=C["grid"],
-              labelcolor=C["text"], fontsize=9)
-    ax.set_title("② 曜日別 平均売上（総売上高）",
+    top_max = max(totals) if totals else 1
+    for i, (t, n) in enumerate(zip(totals, cnts)):
+        if t > 0:
+            ax.text(i, t + top_max * 0.02,
+                    f"{t:.0f}万\nn={n}", ha="center", va="bottom",
+                    fontsize=8.5, color=C["text"])
+
+    ax.set_ylabel("平均売上（万円）", color=C["text"])
+    ax.yaxis.label.set_color(C["text"])
+    ax.set_ylim(0, top_max * 1.28)
+    ax.legend(facecolor=C["card"], edgecolor=C["grid"],
+              labelcolor=C["text"], fontsize=10)
+    ax.set_title("② 曜日別 平均売上（昼食・夕食）",
                  color=C["text"], fontsize=13, fontweight="bold")
     fig.tight_layout()
     return to_img(fig)
 
 
 def chart_3(daily):
-    """③ 支払方法別構成（ドーナツ）"""
+    """③ 支払方法別構成（薄いリング・凡例を右に縦1列）"""
     lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "ふるさと納税", "売掛金"]
     vals   = [sum(d[k] for d in daily) for k in lbls]
     colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c6"], C["c7"]]
+    total  = sum(vals)
+
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig.patch.set_facecolor(C["bg"])
+    ax.set_facecolor(C["bg"]); ax.set_aspect("equal")
+
+    _, _, ats = ax.pie(
+        vals, colors=colors, startangle=90,
+        autopct=lambda p: f"{p:.1f}%" if p > 3 else "",
+        wedgeprops=dict(width=0.22, edgecolor=C["bg"], linewidth=1.5),
+        pctdistance=0.88, counterclock=False
+    )
+    for at in ats:
+        at.set_color("white"); at.set_fontsize(8); at.set_fontweight("bold")
+
+    ax.add_patch(plt.Circle((0, 0), 0.72, color=C["card"], zorder=10))
+    ax.text(0, 0.10, "総売上", ha="center", va="center",
+            fontsize=10, color=C["sub"], zorder=11)
+    ax.text(0, -0.18, f"¥{total/10000:.0f}万", ha="center", va="center",
+            fontsize=13, color=C["c1"], fontweight="bold", zorder=11)
+
+    patches = [
+        mpatches.Patch(color=co,
+                       label=f"{l}\n  ¥{v/10000:.0f}万  ({v/total*100:.1f}%)")
+        for co, l, v in zip(colors, lbls, vals)
+    ]
+    ax.legend(handles=patches, loc="center left", bbox_to_anchor=(1.05, 0.5),
+              ncol=1, fontsize=9, facecolor=C["card"], edgecolor=C["grid"],
+              labelcolor=C["text"], handlelength=1.2, handleheight=1.6,
+              borderpad=0.8, labelspacing=0.9)
+    ax.set_title("③ 支払方法別 売上構成",
+                 color=C["text"], fontsize=13, fontweight="bold", pad=16)
+    fig.tight_layout()
+    return to_img(fig)
+
+
+def chart_4(daily):
+    """④ カテゴリ別売上構成（円グラフのみ・凡例に金額表示）"""
+    cats   = ["FOOD", "DRINK", "売店", "その他"]
+    vals   = [sum(d[k] for d in daily) for k in cats]
+    colors = [C["c4"], C["c1"], C["c3"], C["c2"]]
     total  = sum(vals)
 
     fig, ax = plt.subplots(figsize=(8, 5.5))
     fig.patch.set_facecolor(C["bg"])
     ax.set_facecolor(C["bg"]); ax.set_aspect("equal")
 
-    ax.pie(vals, colors=[(0, 0, 0, 0.25)] * len(vals), startangle=90,
-           counterclock=False,
-           wedgeprops=dict(width=0.52, edgecolor="none"),
-           radius=1.05, center=(0.05, -0.05))
-
     _, _, ats = ax.pie(
         vals, colors=colors, startangle=90,
-        autopct=lambda p: f"{p:.1f}%" if p > 2 else "",
-        wedgeprops=dict(width=0.52, edgecolor=C["bg"], linewidth=2),
-        pctdistance=0.78, counterclock=False
+        autopct=lambda p: f"{p:.1f}%",
+        wedgeprops=dict(edgecolor=C["bg"], linewidth=2.5),
+        pctdistance=0.72, counterclock=False
     )
     for at in ats:
-        at.set_color("white"); at.set_fontsize(8.5); at.set_fontweight("bold")
+        at.set_color("white"); at.set_fontsize(10); at.set_fontweight("bold")
 
-    ax.add_patch(plt.Circle((0, 0), 0.38, color=C["card"], zorder=10))
-    ax.text(0, 0.1, "総売上", ha="center", va="center",
-            fontsize=9, color=C["sub"], zorder=11)
-    ax.text(0, -0.18, f"¥{total/10000:.0f}万", ha="center", va="center",
-            fontsize=12, color=C["c1"], fontweight="bold", zorder=11)
-
-    patches = [mpatches.Patch(color=co,
-                               label=f"{l}  ¥{v/10000:.0f}万 ({v/total*100:.1f}%)")
-               for co, l, v in zip(colors, lbls, vals)]
-    ax.legend(handles=patches, loc="lower center", bbox_to_anchor=(0.5, -0.22),
-              ncol=2, fontsize=8, facecolor=C["card"], edgecolor=C["grid"],
-              labelcolor=C["text"])
-    ax.set_title("③ 支払方法別 売上構成",
-                 color=C["text"], fontsize=13, fontweight="bold")
-    fig.tight_layout()
-    return to_img(fig)
-
-
-def chart_4(daily):
-    """④ カテゴリ別売上構成（円グラフ + 横棒）"""
-    cats   = ["FOOD", "DRINK", "売店", "その他"]
-    vals   = [sum(d[k] for d in daily) for k in cats]
-    colors = [C["c4"], C["c1"], C["c3"], C["c2"]]
-    total  = sum(vals)
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5))
-    fig.patch.set_facecolor(C["bg"])
-
-    ax1.set_facecolor(C["bg"]); ax1.set_aspect("equal")
-    _, _, ats = ax1.pie(vals, colors=colors, startangle=90,
-                        autopct=lambda p: f"{p:.1f}%",
-                        wedgeprops=dict(edgecolor=C["bg"], linewidth=2),
-                        counterclock=False)
-    for at in ats:
-        at.set_color("white"); at.set_fontsize(9); at.set_fontweight("bold")
-    patches = [mpatches.Patch(color=co, label=l) for co, l in zip(colors, cats)]
-    ax1.legend(handles=patches, loc="lower center", bbox_to_anchor=(0.5, -0.12),
-               ncol=2, fontsize=9, facecolor=C["card"], edgecolor=C["grid"],
-               labelcolor=C["text"])
-    ax1.set_title("構成比", color=C["text"], fontsize=10)
-
-    dark_ax(ax2)
-    bars = ax2.barh(cats[::-1], [v / 10000 for v in vals[::-1]],
-                    color=colors[::-1], edgecolor=C["bg"])
-    for bar, v in zip(bars, vals[::-1]):
-        ax2.text(bar.get_width() + 0.3,
-                 bar.get_y() + bar.get_height() / 2,
-                 f"¥{v/10000:.0f}万  ({v/total*100:.1f}%)",
-                 va="center", fontsize=8.5, color=C["text"])
-    ax2.set_xlabel("売上（万円）", color=C["text"])
-    ax2.xaxis.label.set_color(C["text"])
-    ax2.set_title("金額", color=C["text"], fontsize=10)
-    ax2.set_xlim(0, max(vals) / 10000 * 1.45)
-
-    fig.suptitle("④ カテゴリ別 売上構成",
+    patches = [
+        mpatches.Patch(color=co,
+                       label=f"{l}  ¥{v/10000:.0f}万  ({v/total*100:.1f}%)")
+        for co, l, v in zip(colors, cats, vals)
+    ]
+    ax.legend(handles=patches, loc="lower center", bbox_to_anchor=(0.5, -0.14),
+              ncol=2, fontsize=9.5, facecolor=C["card"], edgecolor=C["grid"],
+              labelcolor=C["text"], handlelength=1.2)
+    ax.set_title("④ カテゴリ別 売上構成",
                  color=C["text"], fontsize=13, fontweight="bold")
     fig.tight_layout()
     return to_img(fig)
 
 
 def chart_5(daily):
-    """⑤ 昼食 vs 夕食 比較（売上/客数/客単価）"""
-    op    = [d for d in daily if d["定休"] != "休"]
-    l_amt = sum(d["昼食売上"]  for d in op)
-    d_amt = sum(d["夕食売上"]  for d in op)
-    l_pax = sum(d["昼食客数"] for d in op)
-    d_pax = sum(d["夕食客数"] for d in op)
+    """⑤ 昼食 vs 夕食（売上・客数を1グラフ・客単価をバー上に表示）"""
+    op     = [d for d in daily if d["定休"] != "休"]
+    l_amt  = sum(d["昼食売上"]  for d in op)
+    d_amt  = sum(d["夕食売上"]  for d in op)
+    l_pax  = sum(d["昼食客数"] for d in op)
+    d_pax  = sum(d["夕食客数"] for d in op)
     l_unit = l_amt / l_pax if l_pax else 0
     d_unit = d_amt / d_pax if d_pax else 0
 
-    fig, axes = plt.subplots(1, 3, figsize=(11, 4.5))
-    fig.patch.set_facecolor(C["bg"])
-    labels = ["昼食", "夕食"]
-    colors = [C["c4"], C["c1"]]
+    fig, ax1 = plt.subplots(figsize=(9, 5.5))
+    dark_ax(ax1, fig)
+    ax2 = ax1.twinx()
+    dark_ax(ax2)
+    ax2.set_facecolor("none")
 
-    for ax, (vals, ylabel, unit, fmt) in zip(axes, [
-        ([l_amt / 10000, d_amt / 10000], "売上（万円）",  "万", "{:.0f}万"),
-        ([l_pax,         d_pax],         "客数（名）",    "名", "{:,.0f}名"),
-        ([l_unit,        d_unit],        "客単価（円）", "円", "¥{:,.0f}"),
-    ]):
-        dark_ax(ax)
-        bars = ax.bar(labels, vals, color=colors, width=0.5, edgecolor=C["bg"])
-        for bar, v in zip(bars, vals):
-            ax.text(bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() * 1.02,
-                    fmt.format(v), ha="center", fontsize=9, color=C["text"])
-        ax.set_ylabel(ylabel, color=C["text"])
-        ax.yaxis.label.set_color(C["text"])
-        ax.set_ylim(0, max(vals) * 1.25)
+    x = np.array([0.0, 1.0])
+    w = 0.32
 
-    axes[0].set_title("売上金額", color=C["text"], fontsize=10)
-    axes[1].set_title("来客数",   color=C["text"], fontsize=10)
-    axes[2].set_title("客単価",   color=C["text"], fontsize=10)
-    axes[2].yaxis.set_major_formatter(
-        plt.FuncFormatter(lambda v, _: f"¥{v:,.0f}"))
-    fig.suptitle("⑤ 昼食 vs 夕食 比較",
-                 color=C["text"], fontsize=13, fontweight="bold")
+    # 売上バー（左軸）
+    b1 = ax1.bar(x - w / 2, [l_amt / 10000, d_amt / 10000], w,
+                 color=[C["c4"], C["c1"]], edgecolor=C["bg"], label="売上金額")
+
+    # 客数バー（右軸）
+    b2 = ax2.bar(x + w / 2, [l_pax, d_pax], w,
+                 color=[C["c4"], C["c1"]], edgecolor=C["bg"],
+                 alpha=0.45, label="来客数")
+
+    # 客単価テキストをバー上に
+    for bar, u in zip(b1, [l_unit, d_unit]):
+        ax1.text(bar.get_x() + bar.get_width() / 2,
+                 bar.get_height() + max(l_amt, d_amt) / 10000 * 0.04,
+                 f"客単価\n¥{u:,.0f}",
+                 ha="center", va="bottom", fontsize=9, color=C["c3"],
+                 fontweight="bold")
+
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(["昼食", "夕食"], fontsize=12)
+    ax1.tick_params(axis="x", colors=C["text"])
+    ax1.set_ylabel("売上金額（万円）", color=C["text"])
+    ax1.yaxis.label.set_color(C["text"])
+    ax1.set_ylim(0, max(l_amt, d_amt) / 10000 * 1.35)
+
+    ax2.set_ylabel("来客数（名）", color=C["text"])
+    ax2.yaxis.label.set_color(C["text"])
+    ax2.tick_params(colors=C["text"])
+    ax2.set_ylim(0, max(l_pax, d_pax) * 1.35)
+    ax2.grid(False)
+
+    patches_l = mpatches.Patch(color=C["c4"], label="昼食")
+    patches_d = mpatches.Patch(color=C["c1"], label="夕食")
+    ax1.legend(handles=[patches_l, patches_d],
+               facecolor=C["card"], edgecolor=C["grid"],
+               labelcolor=C["text"], fontsize=10, loc="upper left")
+
+    ax1.text(0.5, 1.03, "実線バー=売上（左軸）  淡色バー=客数（右軸）",
+             ha="center", transform=ax1.transAxes,
+             fontsize=8, color=C["sub"])
+    ax1.set_title("⑤ 昼食 vs 夕食 比較",
+                  color=C["text"], fontsize=13, fontweight="bold", pad=22)
     fig.tight_layout()
     return to_img(fig)
 
 
 def chart_6(daily):
-    """⑥ 天気別 売上分布（箱ひげ図 晴/曇/雨）"""
-    groups = {"晴": [], "曇": [], "雨": []}
-    for d in daily:
-        if d["定休"] == "休":
-            continue
-        t = d.get("昼天気", "")
-        if t in groups:
-            groups[t].append(d["総売上高"] / 10000)
+    """⑥ 天気別 売上分布（昼天気・夜天気それぞれ箱ひげ図）"""
+    weather_colors = {"晴": C["c6"], "曇": C["sub"], "雨": C["c1"]}
+    weather_order  = ["晴", "曇", "雨"]
 
-    lbls   = [k for k in ["晴", "曇", "雨"] if groups[k]]
-    data   = [groups[k] for k in lbls]
-    colors = {"晴": C["c6"], "曇": C["sub"], "雨": C["c1"]}
+    def make_groups(t_key):
+        g = {"晴": [], "曇": [], "雨": []}
+        for d in daily:
+            if d["定休"] == "休":
+                continue
+            t = d.get(t_key, "")
+            if t in g:
+                g[t].append(d["総売上高"] / 10000)
+        return g
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5))
-    dark_ax(ax1, fig); dark_ax(ax2)
+    def draw_box(ax, groups, title):
+        dark_ax(ax)
+        lbls = [k for k in weather_order if groups[k]]
+        data = [groups[k] for k in lbls]
+        bp = ax.boxplot(data, tick_labels=lbls, patch_artist=True,
+                        medianprops=dict(color=C["c3"], lw=2.5),
+                        whiskerprops=dict(color=C["text"], lw=1.2),
+                        capprops=dict(color=C["text"], lw=1.2),
+                        flierprops=dict(markerfacecolor=C["c5"], markersize=5,
+                                        markeredgecolor=C["c5"]))
+        for patch, k in zip(bp["boxes"], lbls):
+            patch.set_facecolor(weather_colors[k]); patch.set_alpha(0.55)
+        for i, (k, pts) in enumerate(zip(lbls, data), 1):
+            ax.text(i, min(pts) - (max(pts) - min(pts)) * 0.08,
+                    f"n={len(pts)}日\n avg={np.mean(pts):.0f}万",
+                    ha="center", va="top", fontsize=7.5, color=C["sub"])
+        ax.set_ylabel("総売上高（万円）", color=C["text"])
+        ax.yaxis.label.set_color(C["text"])
+        ax.set_title(title, color=C["text"], fontsize=11)
 
-    bp = ax1.boxplot(data, tick_labels=lbls, patch_artist=True,
-                     medianprops=dict(color=C["c3"], lw=2.5),
-                     whiskerprops=dict(color=C["text"], lw=1.2),
-                     capprops=dict(color=C["text"], lw=1.2),
-                     flierprops=dict(markerfacecolor=C["c5"], markersize=5,
-                                     markeredgecolor=C["c5"]))
-    for patch, k in zip(bp["boxes"], lbls):
-        patch.set_facecolor(colors[k]); patch.set_alpha(0.55)
-    ax1.set_ylabel("総売上高（万円）", color=C["text"])
-    ax1.yaxis.label.set_color(C["text"])
-    ax1.set_title("分布（箱ひげ図）", color=C["text"], fontsize=10)
+    g_hiru  = make_groups("昼天気")
+    g_yoru  = make_groups("夜天気")
 
-    avgs = [np.mean(groups[k]) for k in lbls]
-    stds = [np.std(groups[k])  for k in lbls]
-    bars = ax2.bar(lbls, avgs,
-                   color=[colors[k] for k in lbls],
-                   width=0.5, edgecolor=C["bg"],
-                   yerr=stds, capsize=6,
-                   error_kw=dict(ecolor=C["text"], elinewidth=1.5))
-    for bar, v, n in zip(bars, avgs, [len(groups[k]) for k in lbls]):
-        ax2.text(bar.get_x() + bar.get_width() / 2,
-                 bar.get_height() + max(stds) * 0.1,
-                 f"{v:.0f}万\nn={n}日", ha="center", fontsize=9, color=C["text"])
-    ax2.set_ylabel("平均総売上高（万円）", color=C["text"])
-    ax2.yaxis.label.set_color(C["text"])
-    ax2.set_ylim(0, max(avgs) * 1.45)
-    ax2.set_title("平均比較（±σ）", color=C["text"], fontsize=10)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 5))
+    fig.patch.set_facecolor(C["bg"])
+    draw_box(ax1, g_hiru,  "昼天気別 売上分布")
+    draw_box(ax2, g_yoru,  "夜天気別 売上分布")
 
-    fig.suptitle("⑥ 天気別 売上分布（昼天気）",
+    fig.suptitle("⑥ 天気別 売上分布（総売上高）",
                  color=C["text"], fontsize=13, fontweight="bold")
     fig.tight_layout()
     return to_img(fig)
 
 
 def chart_7(shohin):
-    """⑦ FOOD / DRINK 売れ筋ランキング Top10（横棒 左右2段）"""
+    """⑦ FOOD / DRINK 売れ筋ランキング Top10（売上金額バー・数量をテキスト表示）"""
     def aggregate(key_name, key_qty, key_amt):
         m = defaultdict(lambda: {"数量": 0, "金額": 0})
         for r in shohin:
@@ -396,37 +413,30 @@ def chart_7(shohin):
     f_names, f_amts, f_qtys = aggregate("F商品名", "F数量", "F金額")
     d_names, d_amts, d_qtys = aggregate("D商品名", "D数量", "D金額")
 
-    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+    fig, (ax_f, ax_d) = plt.subplots(1, 2, figsize=(13, 5.5))
     fig.patch.set_facecolor(C["bg"])
-    (ax_fa, ax_fq), (ax_da, ax_dq) = axes
 
-    def _hbar(ax, names, vals, label, color_base, unit):
+    def _hbar_qty(ax, names, amts, qtys, cm_name, color_title, title, unit):
         dark_ax(ax)
-        grad = [plt.cm.YlOrRd(0.35 + 0.65 * i / max(len(names) - 1, 1))
-                for i in range(len(names))] if "YlOrRd" in color_base else \
-               [plt.cm.Blues(0.35 + 0.65 * i / max(len(names) - 1, 1))
-                for i in range(len(names))]
-        bars = ax.barh(names, vals, color=grad, edgecolor=C["bg"])
-        for bar, v in zip(bars, vals):
-            ax.text(bar.get_width() + max(vals) * 0.015,
+        n = len(names)
+        grad = [getattr(plt.cm, cm_name)(0.35 + 0.65 * i / max(n - 1, 1))
+                for i in range(n)]
+        bars = ax.barh(names, amts, color=grad, edgecolor=C["bg"])
+        max_a = max(amts) if amts else 1
+        for bar, a, q in zip(bars, amts, qtys):
+            ax.text(bar.get_width() + max_a * 0.015,
                     bar.get_y() + bar.get_height() / 2,
-                    f"{v:.1f}{unit}" if unit == "万" else f"{v:,.0f}{unit}",
+                    f"¥{a:.1f}万  {q:,}{unit}",
                     va="center", fontsize=8, color=C["text"])
-        ax.set_xlabel(label, color=C["text"])
+        ax.set_xlabel("売上金額（万円）", color=C["text"])
         ax.xaxis.label.set_color(C["text"])
-        ax.set_xlim(0, max(vals) * 1.32)
+        ax.set_xlim(0, max_a * 1.6)
+        ax.set_title(title, color=color_title, fontsize=11, fontweight="bold")
 
-    _hbar(ax_fa, f_names, f_amts, "売上金額（万円）", "YlOrRd", "万")
-    ax_fa.set_title("FOOD  売上金額 Top10", color=C["c4"], fontsize=10, fontweight="bold")
-
-    _hbar(ax_fq, f_names, f_qtys, "販売数量（個）", "YlOrRd", "個")
-    ax_fq.set_title("FOOD  販売数量 Top10", color=C["c4"], fontsize=10, fontweight="bold")
-
-    _hbar(ax_da, d_names, d_amts, "売上金額（万円）", "Blues", "万")
-    ax_da.set_title("DRINK 売上金額 Top10", color=C["c1"], fontsize=10, fontweight="bold")
-
-    _hbar(ax_dq, d_names, d_qtys, "販売数量（杯）", "Blues", "杯")
-    ax_dq.set_title("DRINK 販売数量 Top10", color=C["c1"], fontsize=10, fontweight="bold")
+    _hbar_qty(ax_f, f_names, f_amts, f_qtys, "YlOrRd", C["c4"],
+              "FOOD 売上金額 Top10", "個")
+    _hbar_qty(ax_d, d_names, d_amts, d_qtys, "Blues",  C["c1"],
+              "DRINK 売上金額 Top10", "杯")
 
     fig.suptitle("⑦ FOOD / DRINK 売れ筋ランキング Top10",
                  color=C["text"], fontsize=14, fontweight="bold")
@@ -466,13 +476,13 @@ def chart_9(daily):
 # レポートExcel 書き出し
 # ══════════════════════════════════════════════════════════════
 CHART_META = [
-    ("① 日次売上トレンド",        (11, 4.5), "折れ線 + 面"),
-    ("② 曜日別 平均売上",         ( 8, 4.5), "縦棒グラフ"),
-    ("③ 支払方法別 構成",         ( 8, 5.5), "ドーナツグラフ"),
-    ("④ カテゴリ別 構成",         (10, 4.5), "円グラフ + 横棒"),
-    ("⑤ 昼食 vs 夕食",           (11, 4.5), "グループ棒グラフ"),
-    ("⑥ 天気別 売上分布",         (10, 4.5), "箱ひげ図 + 棒グラフ"),
-    ("⑦ FOOD・DRINK ランキング",   (13, 9.0), "横棒グラフ"),
+    ("① 日次売上トレンド",        (11, 4.5), "折れ線 + 面（3系列）"),
+    ("② 曜日別 平均売上",         ( 9, 5.0), "積み上げ棒グラフ"),
+    ("③ 支払方法別 構成",         (11, 5.5), "ドーナツグラフ"),
+    ("④ カテゴリ別 構成",         ( 8, 5.5), "円グラフ"),
+    ("⑤ 昼食 vs 夕食",           ( 9, 5.5), "二重軸グラフ"),
+    ("⑥ 天気別 売上分布",         (11, 5.0), "箱ひげ図（昼・夜）"),
+    ("⑦ FOOD・DRINK ランキング",   (13, 5.5), "横棒グラフ"),
     ("⑨ 客単価 日次推移",         (11, 4.5), "折れ線グラフ"),
 ]
 

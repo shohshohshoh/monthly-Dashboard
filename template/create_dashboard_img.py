@@ -266,7 +266,7 @@ def plot_c7(ax_f, ax_d, shohin):
                 [x[1]["金額"]/10000 for x in top][::-1],
                 [x[1]["数量"] for x in top][::-1])
 
-    def _draw(ax, names, amts, qtys, cm_name, title_color, title, unit):
+    def _draw(ax, names, amts, qtys, cm_name, title_color, title, unit, xlim_max):
         dark_ax(ax)
         ax.grid(axis="x", color=C["grid"], ls="--", lw=0.4, alpha=0.4)
         ax.grid(axis="y", visible=False)
@@ -275,13 +275,12 @@ def plot_c7(ax_f, ax_d, shohin):
         n    = len(names)
         cmap = matplotlib.colormaps.get_cmap(cm_name)
         grad = [cmap(0.35 + 0.65 * i / max(n-1, 1)) for i in range(n)]
-        max_a = max(amts) if amts else 1
         ax.barh(names, amts, color=grad, edgecolor=C["bg"], height=0.6)
         for a, q, nm in zip(amts, qtys, names):
-            ax.text(a + max_a * 0.02, names.index(nm),
+            ax.text(a + xlim_max * 0.02, names.index(nm),
                     f"¥{a:.1f}万  {q:,}{unit}",
                     va="center", fontsize=7, color=C["text"])
-        ax.set_xlim(0, max_a * 1.70)
+        ax.set_xlim(0, xlim_max)
         ax.set_yticks(range(len(names)))
         ax.set_yticklabels(names, fontsize=7.5)
         ax.tick_params(axis="y", length=0)
@@ -289,12 +288,12 @@ def plot_c7(ax_f, ax_d, shohin):
 
     fn, fa, fq = agg("F商品名", "F数量", "F金額")
     dn, da, dq = agg("D商品名", "D数量", "D金額")
-    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "⑦ FOOD ランキング Top7", "個")
-    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑦ DRINK ランキング Top7", "杯")
+    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "⑦ FOOD ランキング Top7",  "個", 400)
+    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑦ DRINK ランキング Top7", "杯",  70)
 
 
 # ══════════════════════════════════════════════════════════════
-# ③ 支払方法別（ドーナツ・下右エリア）
+# ③ 支払方法別（横棒グラフ・下右エリア）
 # ══════════════════════════════════════════════════════════════
 def plot_c3(ax, daily):
     _lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "売掛金"]
@@ -306,44 +305,25 @@ def plot_c3(ax, daily):
     vals    = [_vals[i] for i in order]
     colors  = [_colors[i] for i in order]
     total   = sum(vals)
-    THRESH  = 0.08
 
-    ax.set_facecolor(C["bg"])
-    ax.set_aspect("equal")
+    dark_ax(ax)
+    ax.grid(axis="x", color=C["grid"], ls="--", lw=0.4, alpha=0.4)
+    ax.grid(axis="y", visible=False)
+    ax.spines["bottom"].set_visible(False)
+    ax.spines["left"].set_visible(False)
 
-    ax.pie(vals, colors=colors, startangle=90,
-           wedgeprops=dict(width=0.52, edgecolor=C["bg"], linewidth=1.5),
-           counterclock=False)
-
-    start_deg = 90.0
-    for lbl, v, co in zip(lbls, vals, colors):
-        pct   = v / total
-        sweep = pct * 360
-        mid_r = np.deg2rad(start_deg - sweep / 2)
-        cx, cy = np.cos(mid_r), np.sin(mid_r)
-        txt   = f"{lbl}\n{pct*100:.1f}%"
-        if pct >= THRESH:
-            ax.text(0.74 * cx, 0.74 * cy, txt, ha="center", va="center",
-                    fontsize=7.5, color="#03071e", fontweight="bold")
-        else:
-            r = 1.28
-            ax.annotate("", xy=(1.02*cx, 1.02*cy),
-                        xytext=(r*0.87*cx, r*0.87*cy),
-                        arrowprops=dict(arrowstyle="-", color="white",
-                                        lw=0.7, alpha=0.5))
-            ax.text(r*cx, r*cy, txt, ha="center", va="center",
-                    fontsize=7.5, color="white", fontweight="bold")
-        start_deg -= sweep
-
-    ax.add_patch(plt.Circle((0, 0), 0.38, color=C["card"], zorder=10))
-    ax.text(0,  0.13, "総売上", ha="center", va="center",
-            fontsize=9, color="white", fontweight="bold", zorder=11)
-    ax.text(0, -0.18, f"¥{total/10000:.0f}万", ha="center", va="center",
-            fontsize=12, color=C["c1"], fontweight="bold", zorder=11)
-    ax.set_xlim(-1.65, 1.65)
-    ax.set_ylim(-1.65, 1.65)
-    ax.set_title("③ 支払方法別 構成", color=C["text"],
-                 fontsize=9.5, fontweight="bold", pad=6)
+    max_v = max(vals) / 10000
+    for i, (lbl, v, co) in enumerate(zip(lbls, vals, colors)):
+        vw = v / 10000
+        ax.barh(i, vw, color=co, edgecolor=C["bg"], height=0.62)
+        ax.text(vw + max_v * 0.02, i,
+                f"¥{vw:.0f}万  {v/total*100:.1f}%",
+                va="center", fontsize=8, color=co, fontweight="bold")
+    ax.set_xlim(0, max_v * 1.55)
+    ax.set_yticks(range(len(lbls)))
+    ax.set_yticklabels(lbls, fontsize=9, fontweight="bold")
+    ax.tick_params(axis="y", length=0)
+    sub_title(ax, "③ 支払方法別 構成")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -432,13 +412,13 @@ def build_dashboard(year, month, daily, shohin):
     ax4 = fig.add_subplot(gs[1:3, 8:12])
     plot_c4(ax4, daily)
 
-    # ── ② 曜日別（左4/12）──────────────────────────────────
-    ax2 = fig.add_subplot(gs[3, 0:4])
+    # ── ② 曜日別（左2/12・細め）────────────────────────────
+    ax2 = fig.add_subplot(gs[3, 0:2])
     plot_c2(ax2, daily)
 
-    # ── ⑦ FOOD/DRINK（各4/12 等幅）──────────────────────────
-    ax7f = fig.add_subplot(gs[3, 4:8])
-    ax7d = fig.add_subplot(gs[3, 8:12])
+    # ── ⑦ FOOD/DRINK（各5/12 等幅・②と重ならない）─────────
+    ax7f = fig.add_subplot(gs[3, 2:7])
+    ax7d = fig.add_subplot(gs[3, 7:12])
     plot_c7(ax7f, ax7d, shohin)
 
     # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────

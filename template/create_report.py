@@ -294,10 +294,15 @@ def chart_2(daily):
 
 def chart_3(daily):
     """③ 支払方法別構成（ドーナツ・グロウリング・ラベル直接表示）"""
-    lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "ふるさと納税", "売掛金"]
-    vals   = [sum(d[k] for d in daily) for k in lbls]
-    colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c6"], C["c7"]]
-    total  = sum(vals)
+    _lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "ふるさと納税", "売掛金"]
+    _colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c6"], C["c7"]]
+    _vals   = [sum(d[k] for d in daily) for k in _lbls]
+    # 構成比の大きい順に並べ替え
+    _order  = sorted(range(len(_vals)), key=lambda i: _vals[i], reverse=True)
+    lbls    = [_lbls[i]   for i in _order]
+    vals    = [_vals[i]   for i in _order]
+    colors  = [_colors[i] for i in _order]
+    total   = sum(vals)
 
     THRESH = 0.08  # 8%未満はリング外に白字で表示
 

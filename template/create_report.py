@@ -299,8 +299,8 @@ def chart_3(daily):
     colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c6"], C["c7"]]
     total  = sum(vals)
 
-    outer_lbls = [
-        f"{l}\n¥{v/10000:.0f}万\n({v/total*100:.1f}%)"
+    inner_lbls = [
+        f"{l}\n¥{v/10000:.0f}万\n{v/total*100:.1f}%"
         for l, v in zip(lbls, vals)
     ]
 
@@ -315,22 +315,23 @@ def chart_3(daily):
            wedgeprops=dict(width=0.56, edgecolor="none"),
            radius=1.08)
 
-    # メインリング
+    # メインリング（ラベルをリング内部に配置）
     ws, texts = ax.pie(
         vals, colors=colors, startangle=90,
-        labels=outer_lbls, labeldistance=1.30,
+        labels=inner_lbls, labeldistance=0.74,
         wedgeprops=dict(width=0.52, edgecolor=C["bg"], linewidth=2),
         counterclock=False
     )
-    for t, co in zip(texts, colors):
-        t.set_color(co)
-        t.set_fontsize(7.8)
+    for t in texts:
+        t.set_color("#03071e")   # 濃い紺色
+        t.set_fontsize(7.5)
         t.set_fontweight("bold")
+        t.set_horizontalalignment("center")
 
     # センター
     ax.add_patch(plt.Circle((0, 0), 0.40, color=C["card"], zorder=10))
     for r, txt, co, fs in [
-        (0.12, "総売上", C["sub"], 9),
+        (0.12, "総売上", "white", 11),   # 白字・+2pt
         (-0.16, f"¥{total/10000:.0f}万", C["c1"], 13),
     ]:
         ax.text(0, r, txt, ha="center", va="center",

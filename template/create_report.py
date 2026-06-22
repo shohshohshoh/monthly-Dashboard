@@ -373,14 +373,15 @@ def chart_3(daily):
 
 
 def chart_4(daily):
-    """④ カテゴリ別売上構成（円グラフ・ラベル直接表示）"""
-    cats   = ["FOOD", "DRINK", "売店", "その他"]
-    vals   = [sum(d[k] for d in daily) for k in cats]
-    colors = [C["c4"], C["c1"], C["c3"], C["c2"]]
+    """④ カテゴリ別売上構成（円グラフ・売店をその他に統合・ラベル濃い紺色）"""
+    cats   = ["FOOD", "DRINK", "その他"]
+    colors = [C["c4"], C["c1"], C["c2"]]
+    raw    = {k: sum(d[k] for d in daily) for k in ["FOOD", "DRINK", "売店", "その他"]}
+    vals   = [raw["FOOD"], raw["DRINK"], raw["売店"] + raw["その他"]]  # 売店をその他に統合
     total  = sum(vals)
 
-    outer_lbls = [
-        f"{c}\n¥{v/10000:.0f}万\n({v/total*100:.1f}%)"
+    inner_lbls = [
+        f"{c}\n¥{v/10000:.0f}万\n{v/total*100:.1f}%"
         for c, v in zip(cats, vals)
     ]
     explode = [0.04 if v == max(vals) else 0 for v in vals]
@@ -392,13 +393,13 @@ def chart_4(daily):
 
     ws, texts = ax.pie(
         vals, colors=colors, startangle=90,
-        labels=outer_lbls, labeldistance=0.65,
+        labels=inner_lbls, labeldistance=0.65,
         explode=explode,
         wedgeprops=dict(edgecolor=C["bg"], linewidth=2.5),
         counterclock=False
     )
     for t in texts:
-        t.set_color("white")
+        t.set_color("#03071e")  # 濃い紺色
         t.set_fontsize(9.5)
         t.set_fontweight("bold")
         t.set_horizontalalignment("center")

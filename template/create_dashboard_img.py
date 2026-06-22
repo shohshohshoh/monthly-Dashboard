@@ -8,10 +8,10 @@
     → frontend/public/data/dashboard_2026_5.png を出力
 
 レイアウト:
-  [KPI×5]
-  [① 日次売上トレンド] [③ 支払方法別]
-  [② 曜日別] [⑦FOOD] [⑦DRINK] [④ カテゴリ別]
-  [⑧ 客単価 日次推移]
+  [KPI×5                                                        ]
+  [① 日次売上トレンド（8/12）          ] [④ カテゴリ別構成（4/12）]
+  [② 曜日別（4/12）][⑦F（4/12）][⑦D（4/12）                   ]
+  [⑧ 客単価日次推移（8/12）            ] [③ 支払方法別（4/12）   ]
 """
 import argparse
 from pathlib import Path
@@ -20,9 +20,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
-from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.font_manager as fm
 import openpyxl
 
@@ -122,12 +120,23 @@ def draw_kpi(ax, label, value, color):
     ax.axis("off")
     for sp in ax.spines.values():
         sp.set_visible(True); sp.set_edgecolor(color); sp.set_linewidth(1.8)
-    # 上部アクセントライン
     ax.axhline(1, color=color, lw=3, xmin=0.05, xmax=0.95)
     ax.text(0.5, 0.67, label, ha="center", va="center",
             fontsize=8, color=C["sub"], fontweight="bold")
     ax.text(0.5, 0.28, value, ha="center", va="center",
             fontsize=14.5, color=color, fontweight="bold")
+
+
+# ══════════════════════════════════════════════════════════════
+# X軸ラベル（日＋曜日）共通ヘルパー
+# ══════════════════════════════════════════════════════════════
+def set_day_xticks(ax, op_days):
+    """op_days: 稼働日のdictリスト（"日"と"曜日"キーを含む）"""
+    xs     = [d["日"] for d in op_days]
+    labels = [f"{d['日']}\n{d['曜日']}" for d in op_days]
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels, fontsize=6.8)
+    ax.tick_params(axis="x", length=3, pad=1)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -163,63 +172,46 @@ def plot_c1(ax, daily):
 
     ax.set_xlim(min(xs) - 0.5, max(xs) + 0.5)
     ax.set_ylim(0, max(total) * 1.22)
-    ax.set_xlabel("日", color=C["sub"], fontsize=8)
     ax.set_ylabel("売上（万円）", color=C["sub"], fontsize=8)
     ax.legend(facecolor=C["card"], edgecolor=C["grid"],
               labelcolor=C["text"], fontsize=7.5, framealpha=0.85,
               loc="upper left", borderpad=0.5)
+    set_day_xticks(ax, op)
     sub_title(ax, "① 日次売上トレンド")
 
 
 # ══════════════════════════════════════════════════════════════
-# ③ 支払方法別（ドーナツ）
+# ④ カテゴリ別構成（円グラフ・上右エリア）
 # ══════════════════════════════════════════════════════════════
-def plot_c3(ax, daily):
-    _lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "売掛金"]
-    _colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c7"]]
-    _vals   = [sum(d[k] for d in daily) for k in ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay"]]
-    _vals  += [sum(d["ふるさと納税"] + d["売掛金"] for d in daily)]
-    order   = sorted(range(len(_vals)), key=lambda i: _vals[i], reverse=True)
-    lbls    = [_lbls[i] for i in order]
-    vals    = [_vals[i] for i in order]
-    colors  = [_colors[i] for i in order]
-    total   = sum(vals)
-    THRESH  = 0.08
+def plot_c4(ax, daily):
+    cats   = ["FOOD", "DRINK", "その他"]
+    colors = [C["c4"], C["c1"], C["c2"]]
+    raw    = {k: sum(d[k] for d in daily) for k in ["FOOD", "DRINK", "売店", "その他"]}
+    vals   = [raw["FOOD"], raw["DRINK"], raw["売店"] + raw["その他"]]
+    total  = sum(vals)
 
-    ax.set_facecolor(C["bg"]); ax.set_aspect("equal")
+    ax.set_facecolor(C["bg"])
+    ax.set_aspect("equal")
 
-    ws, _ = ax.pie(vals, colors=colors, startangle=90,
-                   wedgeprops=dict(width=0.52, edgecolor=C["bg"], linewidth=1.5),
-                   counterclock=False)
+    ax.pie(vals, colors=colors, startangle=90,
+           wedgeprops=dict(edgecolor=C["bg"], linewidth=2.5),
+           counterclock=False)
 
+    # 全スライス内部にラベル
     start_deg = 90.0
-    for lbl, v, co in zip(lbls, vals, colors):
-        pct = v / total
+    for lbl, v, co in zip(cats, vals, colors):
+        pct   = v / total
         sweep = pct * 360
-        mid_rad = np.deg2rad(start_deg - sweep / 2)
-        cx, cy = np.cos(mid_rad), np.sin(mid_rad)
-        txt = f"{lbl}\n{pct*100:.1f}%"
-        if pct >= THRESH:
-            ax.text(0.74 * cx, 0.74 * cy, txt, ha="center", va="center",
-                    fontsize=6.8, color="#03071e", fontweight="bold")
-        else:
-            r = 1.30
-            ax.annotate("", xy=(1.02*cx, 1.02*cy),
-                        xytext=(r*0.87*cx, r*0.87*cy),
-                        arrowprops=dict(arrowstyle="-", color="white",
-                                        lw=0.7, alpha=0.5))
-            ax.text(r*cx, r*cy, txt, ha="center", va="center",
-                    fontsize=6.8, color="white", fontweight="bold")
+        mid_r = np.deg2rad(start_deg - sweep / 2)
+        cx    = 0.60 * np.cos(mid_r)
+        cy    = 0.60 * np.sin(mid_r)
+        ax.text(cx, cy,
+                f"{lbl}\n¥{v/10000:.0f}万\n{pct*100:.1f}%",
+                ha="center", va="center",
+                fontsize=9.5, color="#03071e", fontweight="bold", zorder=5)
         start_deg -= sweep
 
-    ax.add_patch(plt.Circle((0, 0), 0.38, color=C["card"], zorder=10))
-    ax.text(0, 0.12, "総売上", ha="center", va="center",
-            fontsize=8.5, color="white", fontweight="bold", zorder=11)
-    ax.text(0, -0.18, f"¥{total/10000:.0f}万", ha="center", va="center",
-            fontsize=11, color=C["c1"], fontweight="bold", zorder=11)
-    ax.set_xlim(-1.75, 1.75); ax.set_ylim(-1.75, 1.75)
-    ax.set_title("③ 支払方法別 構成", color=C["text"],
-                 fontsize=9.5, fontweight="bold", pad=6)
+    sub_title(ax, "④ カテゴリ別 構成")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -231,13 +223,14 @@ def plot_c2(ax, daily):
              "金": C["c4"], "土": C["c3"], "祝日": C["c5"]}
     wl, wd = defaultdict(list), defaultdict(list)
     for d in daily:
-        if d["定休"] == "休": continue
+        if d["定休"] == "休":
+            continue
         key = "祝日" if (d["曜日"] == "日" or d["祝日"]) else d["曜日"]
         if key in order:
             wl[key].append(d["昼食売上"]  / 10000)
             wd[key].append(d["夕食売上"] / 10000)
-    al = [np.mean(wl[w]) if wl[w] else 0 for w in order]
-    ad = [np.mean(wd[w]) if wd[w] else 0 for w in order]
+    al  = [np.mean(wl[w]) if wl[w] else 0 for w in order]
+    ad  = [np.mean(wd[w]) if wd[w] else 0 for w in order]
     tot = [l + d for l, d in zip(al, ad)]
     top = max(tot) if tot else 1
 
@@ -247,7 +240,7 @@ def plot_c2(ax, daily):
         ax.bar(i, l, 0.55, color=co, alpha=0.95, edgecolor=C["bg"], lw=0.6, zorder=2)
         ax.bar(i, d, 0.55, bottom=l, color=co, alpha=0.40,
                edgecolor=C["bg"], lw=0.6, zorder=2)
-    for i, (t, n) in enumerate(zip(tot, [len(wl[w]) for w in order])):
+    for i, t in enumerate(tot):
         if t > 0:
             ax.text(i, t + top*0.04, f"{t:.0f}万",
                     ha="center", fontsize=7, color=C["text"], fontweight="bold")
@@ -279,16 +272,16 @@ def plot_c7(ax_f, ax_d, shohin):
         ax.grid(axis="y", visible=False)
         ax.spines["bottom"].set_visible(False)
         ax.spines["left"].set_visible(False)
-        n = len(names)
+        n    = len(names)
         cmap = matplotlib.colormaps.get_cmap(cm_name)
         grad = [cmap(0.35 + 0.65 * i / max(n-1, 1)) for i in range(n)]
         max_a = max(amts) if amts else 1
         ax.barh(names, amts, color=grad, edgecolor=C["bg"], height=0.6)
         for a, q, nm in zip(amts, qtys, names):
-            ax.text(a + max_a*0.015, names.index(nm),
+            ax.text(a + max_a * 0.02, names.index(nm),
                     f"¥{a:.1f}万  {q:,}{unit}",
                     va="center", fontsize=7, color=C["text"])
-        ax.set_xlim(0, max_a * 1.65)
+        ax.set_xlim(0, max_a * 1.70)
         ax.set_yticks(range(len(names)))
         ax.set_yticklabels(names, fontsize=7.5)
         ax.tick_params(axis="y", length=0)
@@ -301,32 +294,56 @@ def plot_c7(ax_f, ax_d, shohin):
 
 
 # ══════════════════════════════════════════════════════════════
-# ④ カテゴリ別（横棒・コンパクト）
+# ③ 支払方法別（ドーナツ・下右エリア）
 # ══════════════════════════════════════════════════════════════
-def plot_c4(ax, daily):
-    cats   = ["FOOD", "DRINK", "その他"]
-    colors = [C["c4"], C["c1"], C["c2"]]
-    raw    = {k: sum(d[k] for d in daily) for k in ["FOOD", "DRINK", "売店", "その他"]}
-    vals   = [raw["FOOD"], raw["DRINK"], raw["売店"] + raw["その他"]]
-    total  = sum(vals)
+def plot_c3(ax, daily):
+    _lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "売掛金"]
+    _colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c7"]]
+    _vals   = [sum(d[k] for d in daily) for k in ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay"]]
+    _vals  += [sum(d["ふるさと納税"] + d["売掛金"] for d in daily)]
+    order   = sorted(range(len(_vals)), key=lambda i: _vals[i], reverse=True)
+    lbls    = [_lbls[i] for i in order]
+    vals    = [_vals[i] for i in order]
+    colors  = [_colors[i] for i in order]
+    total   = sum(vals)
+    THRESH  = 0.08
 
-    dark_ax(ax)
-    ax.grid(axis="x", color=C["grid"], ls="--", lw=0.4, alpha=0.4)
-    ax.grid(axis="y", visible=False)
-    ax.spines["bottom"].set_visible(False)
-    ax.spines["left"].set_visible(False)
+    ax.set_facecolor(C["bg"])
+    ax.set_aspect("equal")
 
-    max_v = max(vals)
-    for i, (c, v, co) in enumerate(zip(cats, vals, colors)):
-        ax.barh(i, v/10000, color=co, edgecolor=C["bg"], height=0.55)
-        ax.text(v/10000 + max_v/10000*0.04, i,
-                f"¥{v/10000:.0f}万\n({v/total*100:.1f}%)",
-                va="center", fontsize=7.5, color=co, fontweight="bold")
-    ax.set_xlim(0, max_v/10000 * 1.55)
-    ax.set_yticks(range(len(cats)))
-    ax.set_yticklabels(cats, fontsize=9, fontweight="bold")
-    ax.tick_params(axis="y", length=0)
-    sub_title(ax, "④ カテゴリ別 構成")
+    ax.pie(vals, colors=colors, startangle=90,
+           wedgeprops=dict(width=0.52, edgecolor=C["bg"], linewidth=1.5),
+           counterclock=False)
+
+    start_deg = 90.0
+    for lbl, v, co in zip(lbls, vals, colors):
+        pct   = v / total
+        sweep = pct * 360
+        mid_r = np.deg2rad(start_deg - sweep / 2)
+        cx, cy = np.cos(mid_r), np.sin(mid_r)
+        txt   = f"{lbl}\n{pct*100:.1f}%"
+        if pct >= THRESH:
+            ax.text(0.74 * cx, 0.74 * cy, txt, ha="center", va="center",
+                    fontsize=7.5, color="#03071e", fontweight="bold")
+        else:
+            r = 1.28
+            ax.annotate("", xy=(1.02*cx, 1.02*cy),
+                        xytext=(r*0.87*cx, r*0.87*cy),
+                        arrowprops=dict(arrowstyle="-", color="white",
+                                        lw=0.7, alpha=0.5))
+            ax.text(r*cx, r*cy, txt, ha="center", va="center",
+                    fontsize=7.5, color="white", fontweight="bold")
+        start_deg -= sweep
+
+    ax.add_patch(plt.Circle((0, 0), 0.38, color=C["card"], zorder=10))
+    ax.text(0,  0.13, "総売上", ha="center", va="center",
+            fontsize=9, color="white", fontweight="bold", zorder=11)
+    ax.text(0, -0.18, f"¥{total/10000:.0f}万", ha="center", va="center",
+            fontsize=12, color=C["c1"], fontweight="bold", zorder=11)
+    ax.set_xlim(-1.65, 1.65)
+    ax.set_ylim(-1.65, 1.65)
+    ax.set_title("③ 支払方法別 構成", color=C["text"],
+                 fontsize=9.5, fontweight="bold", pad=6)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -356,11 +373,11 @@ def plot_c8(ax, daily):
         ax.axhline(avg, color=co, lw=0.9, ls=":", alpha=0.6, label=lbl)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"¥{v:,.0f}"))
     ax.set_xlim(min(days) - 0.5, max(days) + 0.5)
-    ax.set_xlabel("日", color=C["sub"], fontsize=8)
     ax.set_ylabel("客単価（円）", color=C["sub"], fontsize=8)
     ax.legend(facecolor=C["card"], edgecolor=C["grid"],
               labelcolor=C["text"], fontsize=8, framealpha=0.85,
               loc="upper left", borderpad=0.5, ncol=2)
+    set_day_xticks(ax, op)
     sub_title(ax, "⑧ 客単価 日次推移")
 
 
@@ -368,21 +385,21 @@ def plot_c8(ax, daily):
 # メイン描画
 # ══════════════════════════════════════════════════════════════
 def build_dashboard(year, month, daily, shohin):
-    fig = plt.figure(figsize=(22, 12.5), facecolor=C["bg"])
+    fig = plt.figure(figsize=(22, 13.5), facecolor=C["bg"])
 
-    # タイトル
-    fig.text(0.5, 0.975,
+    fig.text(0.5, 0.977,
              f"{year}年{month}月  営業日報 ダッシュボード",
              ha="center", va="top", fontsize=18, fontweight="bold",
              color=C["c1"],
              bbox=dict(boxstyle="round,pad=0.4", fc=C["card"],
                        ec=C["c1"], alpha=0.85, lw=1.5))
 
+    # Row0:KPI  Row1-2:①④  Row3:②⑦  Row4:⑧③
     gs = gridspec.GridSpec(
         5, 12, figure=fig,
-        height_ratios=[1.0, 3.0, 3.0, 2.8, 2.3],
-        hspace=0.58, wspace=0.58,
-        top=0.920, bottom=0.048, left=0.040, right=0.972,
+        height_ratios=[1.0, 3.1, 3.1, 2.8, 3.1],
+        hspace=0.55, wspace=0.48,
+        top=0.920, bottom=0.048, left=0.042, right=0.972,
     )
 
     # ── KPI カード ─────────────────────────────────────────────
@@ -393,44 +410,44 @@ def build_dashboard(year, month, daily, shohin):
     total_din   = sum(d["夕食売上"] for d in op)
     avg_unit    = (total_lunch + total_din) / total_pax if total_pax else 0
     kpis = [
-        (gs[0, 0:3],  "総売上高（税込）",
-         f"¥{total_sales/10000:.0f}万円",    C["c1"]),
-        (gs[0, 3:5],  "総来客数",
-         f"{total_pax:,}名",                  C["c3"]),
-        (gs[0, 5:7],  "平均客単価",
-         f"¥{avg_unit:,.0f}",                 C["c4"]),
-        (gs[0, 7:10], "FOOD売上",
-         f"¥{sum(d['FOOD'] for d in daily)/10000:.0f}万円", C["c2"]),
-        (gs[0, 10:12],"稼働日数",
-         f"{len(op)}日",                       C["c7"]),
+        (gs[0, 0:3],   "総売上高（税込）",
+         f"¥{total_sales/10000:.0f}万円",                         C["c1"]),
+        (gs[0, 3:5],   "総来客数",
+         f"{total_pax:,}名",                                      C["c3"]),
+        (gs[0, 5:7],   "平均客単価",
+         f"¥{avg_unit:,.0f}",                                     C["c4"]),
+        (gs[0, 7:10],  "FOOD売上",
+         f"¥{sum(d['FOOD'] for d in daily)/10000:.0f}万円",       C["c2"]),
+        (gs[0, 10:12], "稼働日数",
+         f"{len(op)}日",                                          C["c7"]),
     ]
     for spec, lbl, val, co in kpis:
         draw_kpi(fig.add_subplot(spec), lbl, val, co)
 
-    # ── ① 日次売上トレンド ─────────────────────────────────────
+    # ── ① 日次売上トレンド（左8/12 × 2行）─────────────────────
     ax1 = fig.add_subplot(gs[1:3, 0:8])
     plot_c1(ax1, daily)
 
-    # ── ③ 支払方法別 ──────────────────────────────────────────
-    ax3 = fig.add_subplot(gs[1:3, 8:12])
-    plot_c3(ax3, daily)
-
-    # ── ② 曜日別 ─────────────────────────────────────────────
-    ax2 = fig.add_subplot(gs[3, 0:3])
-    plot_c2(ax2, daily)
-
-    # ── ⑦ FOOD / DRINK ───────────────────────────────────────
-    ax7f = fig.add_subplot(gs[3, 3:7])
-    ax7d = fig.add_subplot(gs[3, 7:10])
-    plot_c7(ax7f, ax7d, shohin)
-
-    # ── ④ カテゴリ別 ─────────────────────────────────────────
-    ax4 = fig.add_subplot(gs[3, 10:12])
+    # ── ④ カテゴリ別構成（右4/12 × 2行）─────────────────────
+    ax4 = fig.add_subplot(gs[1:3, 8:12])
     plot_c4(ax4, daily)
 
-    # ── ⑧ 客単価 ─────────────────────────────────────────────
-    ax8 = fig.add_subplot(gs[4, :])
+    # ── ② 曜日別（左4/12）──────────────────────────────────
+    ax2 = fig.add_subplot(gs[3, 0:4])
+    plot_c2(ax2, daily)
+
+    # ── ⑦ FOOD/DRINK（各4/12 等幅）──────────────────────────
+    ax7f = fig.add_subplot(gs[3, 4:8])
+    ax7d = fig.add_subplot(gs[3, 8:12])
+    plot_c7(ax7f, ax7d, shohin)
+
+    # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────
+    ax8 = fig.add_subplot(gs[4, 0:8])
     plot_c8(ax8, daily)
+
+    # ── ③ 支払方法別（右4/12 × ⑧と同行）────────────────────
+    ax3 = fig.add_subplot(gs[4, 8:12])
+    plot_c3(ax3, daily)
 
     return fig
 

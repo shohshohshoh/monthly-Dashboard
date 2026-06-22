@@ -639,6 +639,107 @@ def chart_9(daily):
     return to_img(fig)
 
 
+def chart_10(daily):
+    """⑩ 相関行列ヒートマップ（主要数値指標間の相関係数）"""
+    op   = [d for d in daily if d["定休"] != "休"]
+    keys = ["総売上高", "昼食売上", "夕食売上", "昼食客数", "夕食客数", "FOOD", "DRINK"]
+    lbls = ["総売上高", "昼食売上", "夕食売上", "昼食客数", "夕食客数", "FOOD", "DRINK"]
+
+    data = np.array([[d[k] for k in keys] for d in op], dtype=float)
+    corr = np.corrcoef(data.T)
+    n    = len(keys)
+
+    cmap = LinearSegmentedColormap.from_list(
+        "corr", [C["c5"], C["card"], C["c3"]])
+
+    fig, ax = plt.subplots(figsize=(9, 7.5))
+    dark_ax(ax, fig)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+
+    im = ax.imshow(corr, cmap=cmap, vmin=-1, vmax=1, aspect="auto", zorder=2)
+
+    cbar = fig.colorbar(im, ax=ax, shrink=0.75, pad=0.03, fraction=0.046)
+    cbar.ax.tick_params(colors=C["text"], labelsize=8)
+    cbar.outline.set_edgecolor(C["grid"])
+    for t in cbar.ax.get_yticklabels():
+        t.set_color(C["text"])
+
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    ax.set_xticklabels(lbls, rotation=40, ha="right", fontsize=9.5, color=C["text"])
+    ax.set_yticklabels(lbls, fontsize=9.5, color=C["text"])
+    ax.tick_params(length=0)
+
+    for i in range(n):
+        for j in range(n):
+            v = corr[i, j]
+            txt_color = C["bg"] if abs(v) > 0.55 else C["text"]
+            weight    = "bold" if i == j or abs(v) > 0.7 else "normal"
+            ax.text(j, i, f"{v:.2f}", ha="center", va="center",
+                    fontsize=9, color=txt_color, fontweight=weight, zorder=3)
+
+    ax.set_title("⑩ 相関行列ヒートマップ",
+                 color=C["text"], fontsize=14, fontweight="bold", pad=14)
+    fig.tight_layout()
+    return to_img(fig)
+
+
+def chart_11(daily):
+    """⑪ 散布図＋回帰直線（4ペア）"""
+    op = [d for d in daily if d["定休"] != "休"]
+
+    def unit(key):
+        return "（万円）" if any(k in key for k in ["売上", "売上高", "FOOD", "DRINK"]) else "（名）"
+
+    pairs = [
+        ("昼食客数",  "昼食売上",  C["c4"]),
+        ("夕食客数",  "夕食売上",  C["c1"]),
+        ("昼食売上",  "総売上高",  C["c3"]),
+        ("夕食売上",  "総売上高",  C["c2"]),
+    ]
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
+    fig.patch.set_facecolor(C["bg"])
+
+    for ax, (xk, yk, co) in zip(axes.flatten(), pairs):
+        dark_ax(ax)
+        scale = 10000
+        xs = np.array([d[xk] / scale for d in op])
+        ys = np.array([d[yk] / scale for d in op])
+
+        ax.scatter(xs, ys, color=co, alpha=0.65, s=48,
+                   edgecolors=C["bg"], linewidths=0.8, zorder=3)
+
+        if len(xs) > 1:
+            coef  = np.polyfit(xs, ys, 1)
+            xl    = np.linspace(xs.min(), xs.max(), 200)
+            for w, a in [(4, 0.06), (2, 0.12)]:
+                ax.plot(xl, np.polyval(coef, xl), color=co, lw=w, alpha=a, zorder=1)
+            ax.plot(xl, np.polyval(coef, xl), color=co, lw=1.6, alpha=0.85, zorder=2)
+
+            r = np.corrcoef(xs, ys)[0, 1]
+            strength = "強い正相関" if r > 0.7 else "中程度" if r > 0.4 else "弱い相関"
+            lbox(ax, 0.72, 0.08,
+                 f"r = {r:.3f}\n{strength}",
+                 co, fs=8.5, va="bottom",
+                 transform=ax.transAxes)
+
+        x_lbl = xk + unit(xk)
+        y_lbl = yk + unit(yk)
+        ax.set_xlabel(x_lbl, color=C["sub"], fontsize=9)
+        ax.set_ylabel(y_lbl, color=C["sub"], fontsize=9)
+        ax.xaxis.label.set_color(C["sub"])
+        ax.yaxis.label.set_color(C["sub"])
+        ax.set_title(f"{xk}  vs  {yk}", color=C["text"],
+                     fontsize=10, fontweight="bold")
+
+    fig.suptitle("⑪ 散布図 ＋ 回帰直線",
+                 color=C["text"], fontsize=14, fontweight="bold", y=1.01)
+    fig.tight_layout()
+    return to_img(fig)
+
+
 # ══════════════════════════════════════════════════════════════
 # レポートExcel 書き出し
 # ══════════════════════════════════════════════════════════════
@@ -651,6 +752,8 @@ CHART_META = [
     ("⑥ 天気別 売上分布",         (11, 5.5), "箱ひげ図 + 散布点"),
     ("⑦ FOOD・DRINK ランキング",  (13, 5.5), "横棒グラフ"),
     ("⑨ 客単価 日次推移",         (12, 5.0), "折れ線グラフ（グロウ）"),
+    ("⑩ 相関行列ヒートマップ",    ( 9, 7.5), "ヒートマップ"),
+    ("⑪ 散布図＋回帰直線",        (11, 8.0), "散布図"),
 ]
 
 
@@ -782,6 +885,8 @@ def main():
         (chart_6, daily),
         (chart_7, shohin),
         (chart_9, daily),
+        (chart_10, daily),
+        (chart_11, daily),
     ]
     imgs = []
     for i, (fn, arg) in enumerate(chart_fns, 1):

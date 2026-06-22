@@ -299,12 +299,9 @@ def chart_3(daily):
     colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c6"], C["c7"]]
     total  = sum(vals)
 
-    inner_lbls = [
-        f"{l}\n¥{v/10000:.0f}万\n{v/total*100:.1f}%"
-        for l, v in zip(lbls, vals)
-    ]
+    THRESH = 0.08  # 8%未満はリング外に白字で表示
 
-    fig, ax = plt.subplots(figsize=(10, 6.5))
+    fig, ax = plt.subplots(figsize=(11, 7))
     fig.patch.set_facecolor(C["bg"])
     ax.set_facecolor(C["bg"])
     ax.set_aspect("equal")
@@ -315,23 +312,49 @@ def chart_3(daily):
            wedgeprops=dict(width=0.56, edgecolor="none"),
            radius=1.08)
 
-    # メインリング（ラベルをリング内部に配置）
-    ws, texts = ax.pie(
+    # メインリング（ラベルなし）
+    ws, _ = ax.pie(
         vals, colors=colors, startangle=90,
-        labels=inner_lbls, labeldistance=0.74,
         wedgeprops=dict(width=0.52, edgecolor=C["bg"], linewidth=2),
         counterclock=False
     )
-    for t in texts:
-        t.set_color("#03071e")   # 濃い紺色
-        t.set_fontsize(7.5)
-        t.set_fontweight("bold")
-        t.set_horizontalalignment("center")
+
+    # ラベルを手動配置（大スライス→内側紺、小スライス→外側白）
+    start_deg = 90.0
+    for lbl, v, co in zip(lbls, vals, colors):
+        pct = v / total
+        sweep = pct * 360
+        mid_rad = np.deg2rad(start_deg - sweep / 2)
+        cx, cy = np.cos(mid_rad), np.sin(mid_rad)
+        label_text = f"{lbl}\n¥{v/10000:.0f}万\n{pct*100:.1f}%"
+
+        if pct >= THRESH:
+            # リング内部（濃い紺色）
+            ax.text(0.74 * cx, 0.74 * cy, label_text,
+                    ha="center", va="center", fontsize=7.5,
+                    color="#03071e", fontweight="bold", zorder=5)
+        else:
+            # リング外側（白字）+ リーダーライン
+            r_txt = 1.42
+            ax.annotate("",
+                        xy=(1.02 * cx, 1.02 * cy),
+                        xytext=(r_txt * 0.87 * cx, r_txt * 0.87 * cy),
+                        arrowprops=dict(arrowstyle="-", color="white",
+                                        lw=0.8, alpha=0.55),
+                        zorder=4)
+            ax.text(r_txt * cx, r_txt * cy, label_text,
+                    ha="center", va="center", fontsize=7.5,
+                    color="white", fontweight="bold", zorder=5)
+
+        start_deg -= sweep
+
+    ax.set_xlim(-1.9, 1.9)
+    ax.set_ylim(-1.9, 1.9)
 
     # センター
     ax.add_patch(plt.Circle((0, 0), 0.40, color=C["card"], zorder=10))
     for r, txt, co, fs in [
-        (0.12, "総売上", "white", 11),   # 白字・+2pt
+        (0.12, "総売上", "white", 11),
         (-0.16, f"¥{total/10000:.0f}万", C["c1"], 13),
     ]:
         ax.text(0, r, txt, ha="center", va="center",
@@ -615,7 +638,7 @@ def chart_9(daily):
 CHART_META = [
     ("① 日次売上トレンド",        (12, 5.0), "折れ線 + 面（グロウ）"),
     ("② 曜日別 平均売上",         ( 9, 5.5), "積み上げ棒グラフ"),
-    ("③ 支払方法別 構成",         (10, 6.5), "ドーナツグラフ"),
+    ("③ 支払方法別 構成",         (11, 7.0), "ドーナツグラフ"),
     ("④ カテゴリ別 構成",         ( 8, 6.0), "円グラフ"),
     ("⑤ 昼食 vs 夕食",           ( 6, 5.5), "二重軸グラフ"),
     ("⑥ 天気別 売上分布",         (11, 5.5), "箱ひげ図 + 散布点"),

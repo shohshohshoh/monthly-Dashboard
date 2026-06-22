@@ -294,9 +294,10 @@ def chart_2(daily):
 
 def chart_3(daily):
     """③ 支払方法別構成（ドーナツ・グロウリング・ラベル直接表示）"""
-    _lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "ふるさと納税", "売掛金"]
-    _colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c6"], C["c7"]]
-    _vals   = [sum(d[k] for d in daily) for k in _lbls]
+    _lbls   = ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "売掛金"]
+    _colors = [C["c1"], C["c3"], C["c4"], C["c2"], C["c5"], C["c7"]]
+    _vals   = [sum(d[k] for d in daily) for k in ["現金", "JCB", "千葉銀行", "アクアコイン", "PayPay"]]
+    _vals  += [sum(d["ふるさと納税"] + d["売掛金"] for d in daily)]  # ふるさと納税を売掛金に統合
     # 構成比の大きい順に並べ替え
     _order  = sorted(range(len(_vals)), key=lambda i: _vals[i], reverse=True)
     lbls    = [_lbls[i]   for i in _order]

@@ -121,10 +121,8 @@ def draw_kpi(ax, label, value, color):
     for sp in ax.spines.values():
         sp.set_visible(True); sp.set_edgecolor(color); sp.set_linewidth(1.8)
     ax.axhline(1, color=color, lw=3, xmin=0.05, xmax=0.95)
-    ax.text(0.5, 0.67, label, ha="center", va="center",
-            fontsize=8, color=C["sub"], fontweight="bold")
-    ax.text(0.5, 0.28, value, ha="center", va="center",
-            fontsize=14.5, color=color, fontweight="bold")
+    ax.text(0.5, 0.40, f"{label}  {value}", ha="center", va="center",
+            fontsize=11, color=color, fontweight="bold")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -315,31 +313,28 @@ def plot_c3(ax, daily):
     ax.tick_params(axis="x", colors=C["text"], labelsize=8, length=3, pad=3)
     ax.grid(axis="x", color=C["grid"], ls="--", lw=0.4, alpha=0.35, zorder=0)
 
-    THRESH = 8.0   # % 未満は外側ラベル
-    BAR_H  = 0.45
-    left   = 0.0
+    BAR_H = 0.72
+    left  = 0.0
     for lbl, pct, co in zip(lbls, pcts, colors):
         ax.barh(0, pct, left=left, color=co, edgecolor=C["bg"],
                 linewidth=1.2, height=BAR_H, zorder=2)
         mid = left + pct / 2
-        if pct >= THRESH:
+        if pct >= 12:
             ax.text(mid, 0, f"{lbl}\n{pct:.1f}%",
                     ha="center", va="center", fontsize=8.5,
-                    color="#03071e", fontweight="bold", zorder=5)
+                    color="#03071e", fontweight="bold", rotation=0, zorder=5)
+        elif pct >= 5:
+            ax.text(mid, 0, f"{lbl}\n{pct:.1f}%",
+                    ha="center", va="center", fontsize=7,
+                    color="#03071e", fontweight="bold", rotation=90, zorder=5)
         else:
-            ax.annotate(
-                f"{lbl}\n{pct:.1f}%",
-                xy=(mid, BAR_H / 2),
-                xytext=(mid, BAR_H / 2 + 0.24),
-                ha="center", va="bottom",
-                fontsize=7.5, color=co, fontweight="bold",
-                arrowprops=dict(arrowstyle="-", color=co, lw=0.8, alpha=0.65),
-                zorder=5,
-            )
+            ax.text(mid, 0, f"{pct:.1f}%",
+                    ha="center", va="center", fontsize=6.5,
+                    color="#03071e", fontweight="bold", rotation=90, zorder=5)
         left += pct
 
     ax.set_xlim(0, 100)
-    ax.set_ylim(-0.55, 1.20)
+    ax.set_ylim(-0.52, 0.52)
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     sub_title(ax, "③ 支払方法別 構成（100%積み上げ）")
 
@@ -434,9 +429,9 @@ def build_dashboard(year, month, daily, shohin):
     ax2 = fig.add_subplot(gs[3, 0:2])
     plot_c2(ax2, daily)
 
-    # ── ⑦ FOOD/DRINK（各4/12 等幅、col6-7を空けてギャップ）─
-    ax7f = fig.add_subplot(gs[3, 2:6])   # cols 2-5
-    ax7d = fig.add_subplot(gs[3, 8:12])  # cols 8-11（col6-7 空き）
+    # ── ⑦ FOOD/DRINK（cols3-6 / cols8-11、col2・col7を空きギャップ）
+    ax7f = fig.add_subplot(gs[3, 3:7])   # cols 3-6
+    ax7d = fig.add_subplot(gs[3, 8:12])  # cols 8-11
     plot_c7(ax7f, ax7d, shohin)
 
     # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────

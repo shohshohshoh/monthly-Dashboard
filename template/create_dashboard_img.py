@@ -290,7 +290,8 @@ def plot_c7(ax_f, ax_d, shohin):
         ax.set_yticks(range(len(names)))
         ax.set_yticklabels(names, fontsize=7.5)
         ax.tick_params(axis="y", length=0)
-        sub_title(ax, title, color=title_color)
+        ax.set_title(title, color="white", fontsize=11.5,
+                     fontweight="bold", pad=5)
 
     fn, fa, fq = agg("F商品名", "F数量", "F金額")
     dn, da, dq = agg("D商品名", "D数量", "D金額")
@@ -433,13 +434,13 @@ def build_dashboard(year, month, daily, shohin):
     ax4 = fig.add_subplot(gs[1:3, 8:12])
     plot_c4(ax4, daily)
 
-    # ── ② 曜日別（cols1-2・col0を左余白）─────────────────
-    ax2 = fig.add_subplot(gs[3, 1:3])
+    # ── ② 曜日別（cols0-2）────────────────────────────────
+    ax2 = fig.add_subplot(gs[3, 0:3])
     plot_c2(ax2, daily)
 
-    # ── ⑦ FOOD[≈3.5:7.5→4:8] / DRINK[8:12] ───────────────
-    ax7f = fig.add_subplot(gs[3, 4:8])   # ≈ cols 3.5-7.5
-    ax7d = fig.add_subplot(gs[3, 8:12])  # cols 8-12
+    # ── ⑦ FOOD[3:7] / col7空き / DRINK[8:12] ──────────────
+    ax7f = fig.add_subplot(gs[3, 3:7])
+    ax7d = fig.add_subplot(gs[3, 8:12])
     plot_c7(ax7f, ax7d, shohin)
 
     # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────

@@ -288,8 +288,8 @@ def plot_c7(ax_f, ax_d, shohin):
                     va="center", fontsize=7, color="white")
         ax.set_xlim(0, xlim_max)
         ax.set_yticks(range(len(names)))
-        ax.set_yticklabels(names, fontsize=7.5)
-        ax.tick_params(axis="y", length=0)
+        ax.set_yticklabels(names, fontsize=7.5, color="white")
+        ax.tick_params(axis="y", length=0, colors="white")
         ax.set_title(title, color="white", fontsize=11.5,
                      fontweight="bold", pad=5)
 
@@ -442,9 +442,9 @@ def build_dashboard(year, month, daily, shohin):
     ax7f = fig.add_subplot(gs[3, 3:7])
     ax7d = fig.add_subplot(gs[3, 8:12])
     plot_c7(ax7f, ax7d, shohin)
-    # ②ラベルとの重なりを防ぐため FOOD の左端を右にオフセット
+    # ②ラベルとの重なりを防ぐため FOOD の左端を右にオフセット（幅は維持）
     pos = ax7f.get_position()
-    ax7f.set_position([pos.x0 + 0.030, pos.y0, pos.width - 0.030, pos.height])
+    ax7f.set_position([pos.x0 + 0.030, pos.y0, pos.width, pos.height])
 
     # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────
     ax8 = fig.add_subplot(gs[4, 0:8])

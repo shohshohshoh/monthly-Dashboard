@@ -107,24 +107,30 @@ def neon_line(ax, xs, ys, color, lw=1.8, ms=3.5, marker="o", label="", zorder=3)
 
 
 def sub_title(ax, text, color=None):
-    ax.set_title(text, color=color or C["text"], fontsize=9.5,
-                 fontweight="bold", pad=6)
+    ax.text(0.5, 0.975, text, transform=ax.transAxes,
+            ha="center", va="top",
+            color=color or C["text"], fontsize=11.5,
+            fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.25",
+                      facecolor=C["bg"], edgecolor="none", alpha=0.72),
+            zorder=10)
 
 
 # ══════════════════════════════════════════════════════════════
 # KPI カード
 # ══════════════════════════════════════════════════════════════
 def draw_kpi(ax, label, value, color):
-    ax.set_facecolor(C["card"])
+    ax.set_facecolor(C["bg"])
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     ax.axis("off")
-    for sp in ax.spines.values():
-        sp.set_visible(True); sp.set_edgecolor(color); sp.set_linewidth(1.8)
-    ax.axhline(1, color=color, lw=3, xmin=0.05, xmax=0.95)
-    ax.text(0.08, 0.42, label, ha="left",  va="center",
-            fontsize=16, color=color, fontweight="bold")
-    ax.text(0.92, 0.42, value, ha="right", va="center",
-            fontsize=16, color=color, fontweight="bold")
+    rect = plt.Rectangle((0.02, 0.06), 0.96, 0.90,
+                          edgecolor=color, facecolor=C["card"],
+                          linewidth=2.5, zorder=2, clip_on=False)
+    ax.add_patch(rect)
+    ax.text(0.10, 0.50, label, ha="left",  va="center",
+            fontsize=17, color=color, fontweight="bold", zorder=3)
+    ax.text(0.90, 0.50, value, ha="right", va="center",
+            fontsize=17, color=color, fontweight="bold", zorder=3)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -279,7 +285,7 @@ def plot_c7(ax_f, ax_d, shohin):
         for a, q, nm in zip(amts, qtys, names):
             ax.text(a + xlim_max * 0.02, names.index(nm),
                     f"¥{a:.1f}万  {q:,}{unit}",
-                    va="center", fontsize=7, color=C["text"])
+                    va="center", fontsize=7, color="white")
         ax.set_xlim(0, xlim_max)
         ax.set_yticks(range(len(names)))
         ax.set_yticklabels(names, fontsize=7.5)
@@ -393,7 +399,7 @@ def build_dashboard(year, month, daily, shohin):
     gs = gridspec.GridSpec(
         5, 12, figure=fig,
         height_ratios=[1.0, 3.1, 3.1, 2.8, 3.1],
-        hspace=0.55, wspace=0.48,
+        hspace=0.28, wspace=0.24,
         top=0.920, bottom=0.048, left=0.042, right=0.972,
     )
 
@@ -427,13 +433,13 @@ def build_dashboard(year, month, daily, shohin):
     ax4 = fig.add_subplot(gs[1:3, 8:12])
     plot_c4(ax4, daily)
 
-    # ── ② 曜日別（左2/12・細め）────────────────────────────
-    ax2 = fig.add_subplot(gs[3, 0:2])
+    # ── ② 曜日別（cols1-2・col0を左余白）─────────────────
+    ax2 = fig.add_subplot(gs[3, 1:3])
     plot_c2(ax2, daily)
 
-    # ── ⑦ FOOD/DRINK（cols5-7 / cols9-11、col4とcol8を空きギャップ）
-    ax7f = fig.add_subplot(gs[3, 5:8])   # cols 5-7
-    ax7d = fig.add_subplot(gs[3, 9:12])  # cols 9-11
+    # ── ⑦ FOOD[≈3.5:7.5→4:8] / DRINK[8:12] ───────────────
+    ax7f = fig.add_subplot(gs[3, 4:8])   # ≈ cols 3.5-7.5
+    ax7d = fig.add_subplot(gs[3, 8:12])  # cols 8-12
     plot_c7(ax7f, ax7d, shohin)
 
     # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────

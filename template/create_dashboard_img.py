@@ -217,7 +217,7 @@ def plot_c4(ax, daily):
                 fontsize=9.5, color="#03071e", fontweight="bold", zorder=5)
         start_deg -= sweep
 
-    sub_title(ax, "④ カテゴリ別 構成")
+    sub_title(ax, "② カテゴリ別 構成")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -254,7 +254,7 @@ def plot_c2(ax, daily):
     ax.set_xticklabels(order, fontsize=8.5)
     ax.set_ylim(0, top * 1.30)
     ax.set_ylabel("平均売上（万円）", color=C["sub"], fontsize=7.5)
-    sub_title(ax, "② 曜日別 平均売上")
+    sub_title(ax, "③ 曜日別 平均売上")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -295,8 +295,8 @@ def plot_c7(ax_f, ax_d, shohin):
 
     fn, fa, fq = agg("F商品名", "F数量", "F金額")
     dn, da, dq = agg("D商品名", "D数量", "D金額")
-    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "⑦ FOOD ランキング Top7",  "個", 350)
-    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑦ DRINK ランキング Top7", "杯",  60)
+    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "⑧ FOOD ランキング Top7",  "個", 350)
+    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑨ DRINK ランキング Top7", "杯",  60)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -345,7 +345,7 @@ def plot_c3(ax, daily):
     ax.set_xlim(0, 100)
     ax.set_ylim(-0.55, 1.10)
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
-    sub_title(ax, "③ 支払方法別 構成（100%積み上げ）")
+    sub_title(ax, "⑪ 支払方法別 構成（100%積み上げ）")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -380,7 +380,7 @@ def plot_c8(ax, daily):
               labelcolor=C["text"], fontsize=8, framealpha=0.85,
               loc="upper left", borderpad=0.5, ncol=2)
     set_day_xticks(ax, op)
-    sub_title(ax, "⑧ 客単価 日次推移")
+    sub_title(ax, "⑩ 客単価 日次推移")
 
 
 # ══════════════════════════════════════════════════════════════

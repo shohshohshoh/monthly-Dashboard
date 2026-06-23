@@ -442,6 +442,9 @@ def build_dashboard(year, month, daily, shohin):
     ax7f = fig.add_subplot(gs[3, 3:7])
     ax7d = fig.add_subplot(gs[3, 8:12])
     plot_c7(ax7f, ax7d, shohin)
+    # ②ラベルとの重なりを防ぐため FOOD の左端を右にオフセット
+    pos = ax7f.get_position()
+    ax7f.set_position([pos.x0 + 0.030, pos.y0, pos.width - 0.030, pos.height])
 
     # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────
     ax8 = fig.add_subplot(gs[4, 0:8])

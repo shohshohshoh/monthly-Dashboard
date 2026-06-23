@@ -47,7 +47,7 @@ body {
 
 /* ── メイン ── */
 .main {
-  max-width: 760px;
+  max-width: 960px;
   margin: 48px auto;
   padding: 0 24px;
   display: flex;
@@ -213,11 +213,84 @@ body {
 
 .history-date {
   font-size: 0.78rem;
-  color: var(--grid);
+  color: var(--sub);
 }
 
 .history-actions {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* ── ダッシュボード画像 ── */
+.dashboard-card {
+  padding: 20px 24px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard-img {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--grid);
+  display: block;
+}
+
+/* ── ボタン追加バリアント ── */
+.btn--neutral {
+  background: transparent;
+  border-color: var(--sub);
+  color: var(--sub);
+}
+
+.btn--neutral:hover:not(:disabled) {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* ── モーダル ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--card);
+  border: 1px solid var(--c1);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+  max-width: 400px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 0 40px rgba(0, 180, 255, 0.2);
+}
+
+.modal-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--c1);
+}
+
+.modal-message {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
 }

@@ -121,8 +121,10 @@ def draw_kpi(ax, label, value, color):
     for sp in ax.spines.values():
         sp.set_visible(True); sp.set_edgecolor(color); sp.set_linewidth(1.8)
     ax.axhline(1, color=color, lw=3, xmin=0.05, xmax=0.95)
-    ax.text(0.5, 0.40, f"{label}  {value}", ha="center", va="center",
-            fontsize=11, color=color, fontweight="bold")
+    ax.text(0.08, 0.42, label, ha="left",  va="center",
+            fontsize=16, color=color, fontweight="bold")
+    ax.text(0.92, 0.42, value, ha="right", va="center",
+            fontsize=16, color=color, fontweight="bold")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -286,8 +288,8 @@ def plot_c7(ax_f, ax_d, shohin):
 
     fn, fa, fq = agg("F商品名", "F数量", "F金額")
     dn, da, dq = agg("D商品名", "D数量", "D金額")
-    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "⑦ FOOD ランキング Top7",  "個", 400)
-    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑦ DRINK ランキング Top7", "杯",  70)
+    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "⑦ FOOD ランキング Top7",  "個", 350)
+    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑦ DRINK ランキング Top7", "杯",  60)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -313,28 +315,28 @@ def plot_c3(ax, daily):
     ax.tick_params(axis="x", colors=C["text"], labelsize=8, length=3, pad=3)
     ax.grid(axis="x", color=C["grid"], ls="--", lw=0.4, alpha=0.35, zorder=0)
 
-    BAR_H = 0.72
-    left  = 0.0
+    THRESH_IN = 10.0   # %以上はバー内側、未満は引き出し線
+    BAR_H     = 0.82
+    left      = 0.0
     for lbl, pct, co in zip(lbls, pcts, colors):
         ax.barh(0, pct, left=left, color=co, edgecolor=C["bg"],
                 linewidth=1.2, height=BAR_H, zorder=2)
         mid = left + pct / 2
-        if pct >= 12:
+        if pct >= THRESH_IN:
             ax.text(mid, 0, f"{lbl}\n{pct:.1f}%",
                     ha="center", va="center", fontsize=8.5,
-                    color="#03071e", fontweight="bold", rotation=0, zorder=5)
-        elif pct >= 5:
-            ax.text(mid, 0, f"{lbl}\n{pct:.1f}%",
-                    ha="center", va="center", fontsize=7,
-                    color="#03071e", fontweight="bold", rotation=90, zorder=5)
+                    color="#03071e", fontweight="bold", zorder=5)
         else:
-            ax.text(mid, 0, f"{pct:.1f}%",
-                    ha="center", va="center", fontsize=6.5,
-                    color="#03071e", fontweight="bold", rotation=90, zorder=5)
+            top = BAR_H / 2
+            ax.plot([mid, mid], [top, top + 0.07],
+                    color=co, lw=0.9, alpha=0.7, zorder=4)
+            ax.text(mid, top + 0.09, f"{lbl}\n{pct:.1f}%",
+                    ha="center", va="bottom", fontsize=7.5,
+                    color=co, fontweight="bold", zorder=5)
         left += pct
 
     ax.set_xlim(0, 100)
-    ax.set_ylim(-0.52, 0.52)
+    ax.set_ylim(-0.55, 1.10)
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     sub_title(ax, "③ 支払方法別 構成（100%積み上げ）")
 
@@ -429,9 +431,9 @@ def build_dashboard(year, month, daily, shohin):
     ax2 = fig.add_subplot(gs[3, 0:2])
     plot_c2(ax2, daily)
 
-    # ── ⑦ FOOD/DRINK（cols3-6 / cols8-11、col2・col7を空きギャップ）
-    ax7f = fig.add_subplot(gs[3, 3:7])   # cols 3-6
-    ax7d = fig.add_subplot(gs[3, 8:12])  # cols 8-11
+    # ── ⑦ FOOD/DRINK（cols5-7 / cols9-11、col4とcol8を空きギャップ）
+    ax7f = fig.add_subplot(gs[3, 5:8])   # cols 5-7
+    ax7d = fig.add_subplot(gs[3, 9:12])  # cols 9-11
     plot_c7(ax7f, ax7d, shohin)
 
     # ── ⑧ 客単価（左8/12・①と同幅）─────────────────────────

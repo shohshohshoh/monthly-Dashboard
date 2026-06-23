@@ -294,15 +294,17 @@ def plot_c7(ax_f, ax_d, shohin):
         cmap = matplotlib.colormaps.get_cmap(cm_name)
         grad = [cmap(0.35 + 0.65 * i / max(n-1, 1)) for i in range(n)]
         ax.barh(names, amts, color=grad, edgecolor=C["bg"], height=0.42)
+        lbl_col   = "#0f172a" if THEME == "light" else "white"
+        title_col = "black"   if THEME == "light" else "white"
         for a, q, nm in zip(amts, qtys, names):
             ax.text(a + xlim_max * 0.02, names.index(nm),
                     f"{a:.1f}万  {q:,}{unit}",
-                    va="center", fontsize=7, color="white")
+                    va="center", fontsize=7, color=lbl_col, fontweight="bold")
         ax.set_xlim(0, xlim_max)
         ax.set_yticks(range(len(names)))
-        ax.set_yticklabels(names, fontsize=7.5, color="white", fontweight="bold")
-        ax.tick_params(axis="y", length=0, colors="white")
-        ax.set_title(title, color="white", fontsize=11.5,
+        ax.set_yticklabels(names, fontsize=7.5, color=lbl_col, fontweight="bold")
+        ax.tick_params(axis="y", length=0, colors=lbl_col)
+        ax.set_title(title, color=title_col, fontsize=11.5,
                      fontweight="bold", pad=5)
 
     fn, fa, fq = agg("F商品名", "F数量", "F金額")

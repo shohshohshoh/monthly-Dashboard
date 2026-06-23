@@ -32,15 +32,7 @@ _avail = {f.name for f in fm.fontManager.ttflist}
 JP = next((f for f in ["Yu Gothic", "Meiryo", "MS Gothic"] if f in _avail), "sans-serif")
 plt.rcParams.update({"font.family": JP, "axes.unicode_minus": False})
 
-C_DARK = {
-    "bg":   "#03071e", "card": "#080f30",
-    "c1":   "#00c8ff", "c2":   "#a855f7",
-    "c3":   "#00ffa3", "c4":   "#ffb020",
-    "c5":   "#ff3264", "c6":   "#ffe135",
-    "c7":   "#00ecec", "c8":   "#ff6b6b",
-    "grid": "#0d2040", "text": "#cce8ff", "sub":  "#3a5a7a",
-}
-C_LIGHT = {
+C = {
     "bg":   "#f0f4f8", "card": "#ffffff",
     "c1":   "#0284c7", "c2":   "#7c3aed",
     "c3":   "#059669", "c4":   "#d97706",
@@ -48,8 +40,6 @@ C_LIGHT = {
     "c7":   "#0891b2", "c8":   "#be123c",
     "grid": "#cbd5e1", "text": "#0f172a", "sub":  "#475569",
 }
-C     = dict(C_DARK)  # mutable global; main() が --light 時に更新
-THEME = "dark"        # main() が --light 時に "light" に変更
 
 
 # ══════════════════════════════════════════════════════════════
@@ -109,9 +99,6 @@ def dark_ax(ax):
 
 
 def neon_line(ax, xs, ys, color, lw=1.8, ms=3.5, marker="o", label="", zorder=3):
-    if THEME == "dark":
-        for w, a in [(7, 0.03), (4, 0.08), (2.5, 0.14)]:
-            ax.plot(xs, ys, color=color, lw=w, alpha=a, solid_capstyle="round", zorder=zorder-1)
     ax.plot(xs, ys, color=color, lw=lw, marker=marker, ms=ms,
             markerfacecolor=C["bg"], markeredgecolor=color,
             markeredgewidth=1.4, label=label, solid_capstyle="round", zorder=zorder)
@@ -168,11 +155,10 @@ def plot_c1(ax, daily):
     avg    = np.mean(total)
     max_i  = int(np.argmax(total))
 
-    fa = 0.10 if THEME == "dark" else 0.22
     dark_ax(ax)
-    ax.fill_between(xs, total,  alpha=fa * 1.3, color=C["c1"])
-    ax.fill_between(xs, lunch,  alpha=fa,        color=C["c4"])
-    ax.fill_between(xs, dinner, alpha=fa,        color=C["c2"])
+    ax.fill_between(xs, total,  alpha=0.28, color=C["c1"])
+    ax.fill_between(xs, lunch,  alpha=0.22, color=C["c4"])
+    ax.fill_between(xs, dinner, alpha=0.22, color=C["c2"])
 
     neon_line(ax, xs, total,  C["c1"], lw=2.0, ms=3,   label="総売上高")
     neon_line(ax, xs, lunch,  C["c4"], lw=1.4, ms=2.5, marker="^", label="昼食売上")
@@ -294,8 +280,8 @@ def plot_c7(ax_f, ax_d, shohin):
         cmap = matplotlib.colormaps.get_cmap(cm_name)
         grad = [cmap(0.35 + 0.65 * i / max(n-1, 1)) for i in range(n)]
         ax.barh(names, amts, color=grad, edgecolor=C["bg"], height=0.42)
-        lbl_col   = "#0f172a" if THEME == "light" else "white"
-        title_col = "black"   if THEME == "light" else "white"
+        lbl_col   = "#0f172a"
+        title_col = "black"
         for a, q, nm in zip(amts, qtys, names):
             ax.text(a + xlim_max * 0.02, names.index(nm),
                     f"{a:.1f}万  {q:,}{unit}",
@@ -373,14 +359,13 @@ def plot_c8(ax, daily):
     d_unit = [d["夕食売上"] / d["夕食客数"] for d in op]
     l_avg, d_avg = np.mean(l_unit), np.mean(d_unit)
 
-    fb = 0.07 if THEME == "dark" else 0.18
     dark_ax(ax)
     ax.fill_between(days, l_unit, d_unit,
                     where=[l > d for l, d in zip(l_unit, d_unit)],
-                    alpha=fb, color=C["c4"])
+                    alpha=0.18, color=C["c4"])
     ax.fill_between(days, l_unit, d_unit,
                     where=[d >= l for l, d in zip(l_unit, d_unit)],
-                    alpha=fb, color=C["c1"])
+                    alpha=0.18, color=C["c1"])
     neon_line(ax, days, l_unit, C["c4"], lw=1.8, ms=3.5, label="昼食 客単価")
     neon_line(ax, days, d_unit, C["c1"], lw=1.8, ms=3.5, marker="s", label="夕食 客単価")
     for co, avg, lbl in [(C["c4"], l_avg, f"昼平均 {l_avg:,.0f}"),
@@ -476,19 +461,12 @@ def build_dashboard(year, month, daily, shohin):
 # メイン
 # ══════════════════════════════════════════════════════════════
 def main():
-    global C, THEME
     parser = argparse.ArgumentParser(description="日次データ → 1枚ダッシュボード PNG")
     parser.add_argument("year",  type=int)
     parser.add_argument("month", type=int)
-    parser.add_argument("--light", action="store_true", help="白背景テーマで出力")
     args = parser.parse_args()
 
-    if args.light:
-        C.update(C_LIGHT)
-        THEME = "light"
-        out = OUT_DIR / f"dashboard_light_{args.year}_{args.month}.png"
-    else:
-        out = OUT_DIR / f"dashboard_{args.year}_{args.month}.png"
+    out = OUT_DIR / f"dashboard_{args.year}_{args.month}.png"
     print(f"データ読み込み中: daily_{args.year}_{args.month}.xlsx")
     daily, shohin = load_data(args.year, args.month)
     print(f"  日次: {len(daily)}日  商品別: {len(shohin)}行")

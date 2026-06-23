@@ -171,7 +171,7 @@ def plot_c1(ax, daily):
                label=f"平均 {avg:.0f}万")
 
     ax.text(xs[max_i], total[max_i] + max(total)*0.04,
-            f"MAX\n¥{total[max_i]:.0f}万",
+            f"MAX\n{total[max_i]:.0f}万",
             ha="center", fontsize=7, color=C["c4"], fontweight="bold",
             bbox=dict(boxstyle="round,pad=0.2", fc=C["bg"], ec=C["c4"],
                       alpha=0.8, lw=0.8))
@@ -212,7 +212,7 @@ def plot_c4(ax, daily):
         cx    = 0.60 * np.cos(mid_r)
         cy    = 0.60 * np.sin(mid_r)
         ax.text(cx, cy,
-                f"{lbl}\n¥{v/10000:.0f}万\n{pct*100:.1f}%",
+                f"{lbl}\n{v/10000:.0f}万\n{pct*100:.1f}%",
                 ha="center", va="center",
                 fontsize=9.5, color="#03071e", fontweight="bold", zorder=5)
         start_deg -= sweep
@@ -284,11 +284,11 @@ def plot_c7(ax_f, ax_d, shohin):
         ax.barh(names, amts, color=grad, edgecolor=C["bg"], height=0.42)
         for a, q, nm in zip(amts, qtys, names):
             ax.text(a + xlim_max * 0.02, names.index(nm),
-                    f"¥{a:.1f}万  {q:,}{unit}",
+                    f"{a:.1f}万  {q:,}{unit}",
                     va="center", fontsize=7, color="white")
         ax.set_xlim(0, xlim_max)
         ax.set_yticks(range(len(names)))
-        ax.set_yticklabels(names, fontsize=7.5, color="white")
+        ax.set_yticklabels(names, fontsize=7.5, color="white", fontweight="bold")
         ax.tick_params(axis="y", length=0, colors="white")
         ax.set_title(title, color="white", fontsize=11.5,
                      fontweight="bold", pad=5)
@@ -325,19 +325,19 @@ def plot_c3(ax, daily):
     THRESH_IN = 10.0   # %以上はバー内側、未満は引き出し線
     BAR_H     = 0.82
     left      = 0.0
-    for lbl, pct, co in zip(lbls, pcts, colors):
+    for lbl, v, pct, co in zip(lbls, vals, pcts, colors):
         ax.barh(0, pct, left=left, color=co, edgecolor=C["bg"],
                 linewidth=1.2, height=BAR_H, zorder=2)
         mid = left + pct / 2
         if pct >= THRESH_IN:
-            ax.text(mid, 0, f"{lbl}\n{pct:.1f}%",
+            ax.text(mid, 0, f"{lbl}\n{v/10000:.0f}万\n{pct:.1f}%",
                     ha="center", va="center", fontsize=8.5,
                     color="#03071e", fontweight="bold", zorder=5)
         else:
             top = BAR_H / 2
             ax.plot([mid, mid], [top, top + 0.07],
                     color=co, lw=0.9, alpha=0.7, zorder=4)
-            ax.text(mid, top + 0.09, f"{lbl}\n{pct:.1f}%",
+            ax.text(mid, top + 0.09, f"{lbl}\n{v/10000:.0f}万\n{pct:.1f}%",
                     ha="center", va="bottom", fontsize=7.5,
                     color=co, fontweight="bold", zorder=5)
         left += pct
@@ -368,12 +368,12 @@ def plot_c8(ax, daily):
                     alpha=0.07, color=C["c1"])
     neon_line(ax, days, l_unit, C["c4"], lw=1.8, ms=3.5, label="昼食 客単価")
     neon_line(ax, days, d_unit, C["c1"], lw=1.8, ms=3.5, marker="s", label="夕食 客単価")
-    for co, avg, lbl in [(C["c4"], l_avg, f"昼平均 ¥{l_avg:,.0f}"),
-                          (C["c1"], d_avg, f"夜平均 ¥{d_avg:,.0f}")]:
+    for co, avg, lbl in [(C["c4"], l_avg, f"昼平均 {l_avg:,.0f}"),
+                          (C["c1"], d_avg, f"夜平均 {d_avg:,.0f}")]:
         for w, a in [(3, 0.06), (1.5, 0.12)]:
             ax.axhline(avg, color=co, lw=w, alpha=a, ls=":")
         ax.axhline(avg, color=co, lw=0.9, ls=":", alpha=0.6, label=lbl)
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"¥{v:,.0f}"))
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:,.0f}"))
     ax.set_xlim(min(days) - 0.5, max(days) + 0.5)
     ax.set_ylabel("客単価（円）", color=C["sub"], fontsize=8)
     ax.legend(facecolor=C["card"], edgecolor=C["grid"],
@@ -413,13 +413,13 @@ def build_dashboard(year, month, daily, shohin):
     avg_unit    = (total_lunch + total_din) / total_pax if total_pax else 0
     kpis = [
         (gs[0, 0:3],   "総売上高（税込）",
-         f"¥{total_sales/10000:.0f}万円",                         C["c1"]),
+         f"{total_sales/10000:.0f}万円",                          C["c1"]),
         (gs[0, 3:5],   "総来客数",
          f"{total_pax:,}名",                                      C["c3"]),
         (gs[0, 5:7],   "平均客単価",
-         f"¥{avg_unit:,.0f}",                                     C["c4"]),
+         f"{avg_unit:,.0f}",                                      C["c4"]),
         (gs[0, 7:10],  "FOOD売上",
-         f"¥{sum(d['FOOD'] for d in daily)/10000:.0f}万円",       C["c2"]),
+         f"{sum(d['FOOD'] for d in daily)/10000:.0f}万円",        C["c2"]),
         (gs[0, 10:12], "稼働日数",
          f"{len(op)}日",                                          C["c7"]),
     ]

@@ -438,8 +438,8 @@ def build_dashboard(year, month, daily, shohin):
     ax2 = fig.add_subplot(gs[3, 0:3])
     plot_c2(ax2, daily)
 
-    # ── ⑦ FOOD[4:8] / DRINK[8:12]（col3が②との空きギャップ）
-    ax7f = fig.add_subplot(gs[3, 4:8])
+    # ── ⑦ FOOD[3:7] / col7空き / DRINK[8:12] ──────────────
+    ax7f = fig.add_subplot(gs[3, 3:7])
     ax7d = fig.add_subplot(gs[3, 8:12])
     plot_c7(ax7f, ax7d, shohin)
 

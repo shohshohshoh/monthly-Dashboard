@@ -487,11 +487,6 @@ def main():
         out = OUT_DIR / f"dashboard_light_{args.year}_{args.month}.png"
     else:
         out = OUT_DIR / f"dashboard_{args.year}_{args.month}.png"
-    if out.exists():
-        ans = input(f"\n{out.name} は既に存在します。上書きしますか？ [y/N]: ").strip().lower()
-        if ans != "y":
-            print("キャンセルしました。"); return
-
     print(f"データ読み込み中: daily_{args.year}_{args.month}.xlsx")
     daily, shohin = load_data(args.year, args.month)
     print(f"  日次: {len(daily)}日  商品別: {len(shohin)}行")

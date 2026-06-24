@@ -86,6 +86,10 @@ def create_daily(year: int, month: int) -> Path:
         kyujitsu = ws_data.cell(R_KYUJITSU, col).value or None
         youbi    = ws_data.cell(R_YOUBI, col).value or ""
 
+        total = _int(ws_data.cell(R_TOTAL, col).value)
+        if total == 0:
+            teikyu = "休"
+
         row = {
             "日付":         dt.strftime("%Y/%m/%d"),
             "日":           dt.day,
@@ -94,7 +98,7 @@ def create_daily(year: int, month: int) -> Path:
             "祝日":         kyujitsu,
             "昼天気":       None,
             "夜天気":       None,
-            "総売上高":     _int(ws_data.cell(R_TOTAL,    col).value),
+            "総売上高":     total,
             "純売上高":     _int(ws_data.cell(R_JUN,      col).value),
             "現金":         _int(ws_data.cell(R_CASH,     col).value),
             "JCB":          _int(ws_data.cell(R_JCB,      col).value),

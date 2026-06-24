@@ -54,7 +54,7 @@ def create_daily(year: int, month: int) -> Path:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     wb_src    = openpyxl.load_workbook(str(src), data_only=True)
-    ws_data   = wb_src.active
+    ws_data   = wb_src["データ"]
     ws_shohin = wb_src["商品別"]
 
     # 行1 でデータ列を特定（列F以降、datetime値）

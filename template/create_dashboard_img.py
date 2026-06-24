@@ -295,8 +295,10 @@ def plot_c7(ax_f, ax_d, shohin):
 
     fn, fa, fq = agg("F商品名", "F数量", "F金額")
     dn, da, dq = agg("D商品名", "D数量", "D金額")
-    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "④ FOOD ランキング Top7",  "個", 350)
-    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑤ DRINK ランキング Top7", "杯",  60)
+    f_xlim = (max(fa) if fa else 0) + 10
+    d_xlim = (max(da) if da else 0) + 10
+    _draw(ax_f, fn, fa, fq, "YlOrRd", C["c4"], "④ FOOD ランキング Top7",  "個", f_xlim)
+    _draw(ax_d, dn, da, dq, "Blues",  C["c1"], "⑤ DRINK ランキング Top7", "杯", d_xlim)
 
 
 # ══════════════════════════════════════════════════════════════

@@ -63,7 +63,7 @@ def create_daily(year: int, month: int) -> Path:
         val = ws_data.cell(1, col).value
         if val is None:
             break
-        if isinstance(val, datetime):
+        if isinstance(val, datetime) and val.year == year and val.month == month:
             date_cols.append((col, val))
 
     # ── 日次データ ──

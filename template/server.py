@@ -25,10 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-ROOT    = Path(__file__).parent.parent
-DATA    = ROOT / "frontend" / "public" / "data"
-SCRIPTS = Path(__file__).parent
-PY      = sys.executable
+ROOT      = Path(__file__).parent.parent
+DATA      = ROOT / "frontend" / "public" / "data"
+SRC_DIR   = ROOT / "data"
+SCRIPTS   = Path(__file__).parent
+PY        = sys.executable
 
 
 class Req(BaseModel):
@@ -40,9 +41,11 @@ class Req(BaseModel):
 def check(req: Req) -> dict:
     y, m = req.year, req.month
     return {
-        "input_exists":     (DATA / f"daily_{y}_{m}.xlsx").exists(),
-        "dashboard_exists": (DATA / f"dashboard_{y}_{m}.png").exists(),
+        "source_exists":    (SRC_DIR / f"★営業日報{y}年{m}月.xlsx").exists(),
+        "daily_exists":     (DATA / f"daily_{y}_{m}.xlsx").exists(),
         "report_exists":    (DATA / f"report_{y}_{m}.xlsx").exists(),
+        "dashboard_exists": (DATA / f"dashboard_{y}_{m}.png").exists(),
+        "pptx_exists":      (DATA / f"dashboard_{y}_{m}.pptx").exists(),
     }
 
 
@@ -50,15 +53,15 @@ def check(req: Req) -> dict:
 def generate(req: Req) -> dict:
     y, m = req.year, req.month
 
-    input_file = DATA / f"daily_{y}_{m}.xlsx"
-    if not input_file.exists():
+    src = SRC_DIR / f"★営業日報{y}年{m}月.xlsx"
+    if not src.exists():
         raise HTTPException(
             404,
-            detail=f"daily_{y}_{m}.xlsx が見つかりません。"
-                   f"frontend/public/data/ フォルダに配置してください。",
+            detail=f"★営業日報{y}年{m}月.xlsx が data/ フォルダに見つかりません。",
         )
 
-    for script in ["create_report.py", "create_dashboard_img.py"]:
+    for script in ["create_daily.py", "create_report.py",
+                   "create_dashboard_img.py", "create_pptx.py"]:
         res = subprocess.run(
             [PY, str(SCRIPTS / script), str(y), str(m)],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -71,19 +74,8 @@ def generate(req: Req) -> dict:
                        f"{res.stderr or res.stdout}",
             )
 
-    res = subprocess.run(
-        [PY, str(SCRIPTS / "create_pptx.py"), str(y), str(m)],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        cwd=str(SCRIPTS),
-    )
-    if res.returncode != 0:
-        raise HTTPException(
-            500,
-            detail=f"create_pptx.py の実行中にエラーが発生しました:\n"
-                   f"{res.stderr or res.stdout}",
-        )
-
     return {
         "success": True,
-        "message": f"dashboard_{y}_{m}.png / report_{y}_{m}.xlsx / dashboard_{y}_{m}.pptx を生成しました",
+        "message": (f"daily_{y}_{m}.xlsx / report_{y}_{m}.xlsx / "
+                    f"dashboard_{y}_{m}.png / dashboard_{y}_{m}.pptx を生成しました"),
     }

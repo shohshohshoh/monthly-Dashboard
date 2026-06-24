@@ -36,28 +36,41 @@ function Modal({ title, message, onConfirm, onCancel, confirmLabel = 'はい', c
   )
 }
 
+function Lightbox({ src, label, onClose, onDownload }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="lightbox" onClick={onClose}>
+      <div className="lightbox-inner" onClick={e => e.stopPropagation()}>
+        <div className="lightbox-bar">
+          <span className="lightbox-label">{label}</span>
+          <div className="lightbox-actions">
+            <button className="btn btn--small" onClick={onDownload}>PPT ダウンロード</button>
+            <button className="lightbox-close" onClick={onClose} title="閉じる（Esc）">✕</button>
+          </div>
+        </div>
+        <img src={src} alt="ダッシュボード" className="lightbox-img" />
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
-  const [yearMonth, setYearMonth]     = useState('')
-  const [error, setError]             = useState('')
-  const [phase, setPhase]             = useState('idle') // idle | checking | confirm | generating | done | error
-  const [currentYM, setCurrentYM]     = useState(null)  // {year, month}
-  const [dashboardSrc, setDashboardSrc] = useState(null)
+  const [yearMonth, setYearMonth]       = useState('')
+  const [error, setError]               = useState('')
+  const [phase, setPhase]               = useState('idle') // idle | checking | confirm | generating | done | error
+  const [currentYM, setCurrentYM]       = useState(null)  // {year, month}
+  const [lightboxSrc, setLightboxSrc]   = useState(null)
   const [showDownload, setShowDownload] = useState(false)
-  const [history, setHistory]         = useState(loadHistory)
-  const imgRef    = useRef(null)
-  const scrollRef = useRef(false)
+  const [history, setHistory]           = useState(loadHistory)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history))
   }, [history])
-
-  // dashboardSrc が更新された後にスクロール
-  useEffect(() => {
-    if (scrollRef.current && imgRef.current) {
-      imgRef.current.scrollIntoView({ behavior: 'smooth' })
-      scrollRef.current = false
-    }
-  }, [dashboardSrc])
 
   function handleChange(e) {
     setYearMonth(e.target.value)
@@ -83,9 +96,17 @@ export default function App() {
       if (!res.ok) throw new Error('サーバーへの接続に失敗しました')
       const info = await res.json()
 
+      if (!info.source_exists) {
+        setPhase('error')
+        setError(`★営業日報${ym.year}年${ym.month}月.xlsx が data/ フォルダに見つかりません`)
+        return
+      }
+
       setCurrentYM(ym)
 
-      if (info.dashboard_exists || info.report_exists) {
+      const anyExists = info.daily_exists || info.report_exists ||
+                        info.dashboard_exists || info.pptx_exists
+      if (anyExists) {
         setPhase('confirm')
       } else {
         await runGenerate(ym)
@@ -108,16 +129,18 @@ export default function App() {
       if (!res.ok) throw new Error(data.detail || '生成に失敗しました')
 
       const { year, month } = ym
-      setDashboardSrc(`/data/dashboard_${year}_${month}.png?t=${Date.now()}`)
-      setCurrentYM(ym)
-      setPhase('done')
-      setShowDownload(true)
+      const src = `/data/dashboard_${year}_${month}.png?t=${Date.now()}`
 
       const key = `${year}/${month}`
       setHistory(prev => {
         const filtered = prev.filter(h => h.yearMonth !== key)
         return [{ yearMonth: key, year, month, generatedAt: new Date().toLocaleString('ja-JP') }, ...filtered]
       })
+
+      setPhase('done')
+      setCurrentYM(ym)
+      setLightboxSrc(src)
+      setShowDownload(true)
     } catch (err) {
       setPhase('error')
       setError(err.message || '生成中にエラーが発生しました')
@@ -136,10 +159,14 @@ export default function App() {
 
   function handleOpen(entry) {
     const ym = entry.year ? entry : parseYM(entry.yearMonth)
-    setDashboardSrc(`/data/dashboard_${ym.year}_${ym.month}.png?t=${Date.now()}`)
     setCurrentYM(ym)
+    setLightboxSrc(`/data/dashboard_${ym.year}_${ym.month}.png?t=${Date.now()}`)
     setShowDownload(false)
-    scrollRef.current = true
+  }
+
+  function handleCloseLightbox() {
+    setLightboxSrc(null)
+    setShowDownload(false)
   }
 
   async function handleDownload() {
@@ -164,7 +191,6 @@ export default function App() {
         await writable.write(blob)
         await writable.close()
       } else {
-        // フォールバック: ブラウザのダウンロード
         const a = document.createElement('a')
         a.href = `/data/${filename}`
         a.download = filename
@@ -195,7 +221,7 @@ export default function App() {
         {/* 入力フォーム */}
         <form className="card" onSubmit={handleSubmit}>
           <p className="card-desc">
-            年月を入力すると、対象の営業日報Excelからダッシュボード・レポート・PowerPointを生成します。
+            年月を入力すると、営業日報Excelからダッシュボード・レポート・PowerPointを生成します。
           </p>
 
           <label className="label" htmlFor="ym-input">対象年月</label>
@@ -218,27 +244,12 @@ export default function App() {
 
           {error && <p className="msg msg--error">⚠ {error}</p>}
           {phase === 'generating' && (
-            <p className="msg msg--info">⏳ ダッシュボード・レポートを生成しています…</p>
+            <p className="msg msg--info">⏳ データ変換・ダッシュボード生成中…</p>
           )}
           {phase === 'done' && (
             <p className="msg msg--success">✔ 生成が完了しました</p>
           )}
         </form>
-
-        {/* ダッシュボード画像表示 */}
-        {dashboardSrc && (
-          <section className="card dashboard-card" ref={imgRef}>
-            <div className="dashboard-header">
-              <span className="label">
-                {currentYM ? `ダッシュボード ${currentYM.year}/${currentYM.month}` : 'ダッシュボード'}
-              </span>
-              <button className="btn btn--small" onClick={() => setShowDownload(true)}>
-                PPT ダウンロード
-              </button>
-            </div>
-            <img src={dashboardSrc} alt="ダッシュボード" className="dashboard-img" />
-          </section>
-        )}
 
         {/* 生成履歴 */}
         {history.length > 0 && (
@@ -280,8 +291,8 @@ export default function App() {
         />
       )}
 
-      {/* ダウンロード確認モーダル */}
-      {showDownload && (
+      {/* ダウンロード確認モーダル（ライトボックス外） */}
+      {showDownload && !lightboxSrc && (
         <Modal
           title="ダウンロード"
           message="PowerPointファイルをダウンロードしますか？"
@@ -289,6 +300,16 @@ export default function App() {
           cancelLabel="後で"
           onConfirm={handleDownload}
           onCancel={() => setShowDownload(false)}
+        />
+      )}
+
+      {/* ライトボックス（ダッシュボード全画面表示） */}
+      {lightboxSrc && (
+        <Lightbox
+          src={lightboxSrc}
+          label={currentYM ? `ダッシュボード ${currentYM.year}/${currentYM.month}` : 'ダッシュボード'}
+          onClose={handleCloseLightbox}
+          onDownload={handleDownload}
         />
       )}
     </div>

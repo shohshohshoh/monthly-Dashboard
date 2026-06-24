@@ -428,8 +428,8 @@ def build_dashboard(year, month, daily, shohin):
          f"{total_pax:,}名",                                      C["c3"]),
         (gs[0, 5:7],   "平均客単価",
          f"{avg_unit:,.0f}",                                      C["c4"]),
-        (gs[0, 7:10],  "FOOD売上",
-         f"{sum(d['FOOD'] for d in daily)/10000:.0f}万円",        C["c2"]),
+        (gs[0, 7:10],  "平均売上高",
+         f"{total_sales/len(op)/10000:.0f}万円" if op else "―",   C["c2"]),
         (gs[0, 10:12], "稼働日数",
          f"{len(op)}日",                                          C["c7"]),
     ]

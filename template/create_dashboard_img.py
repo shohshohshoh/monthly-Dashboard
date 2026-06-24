@@ -244,6 +244,14 @@ def plot_c2(ax, daily):
         ax.bar(i, l, 0.55, color=co, alpha=0.95, edgecolor=C["bg"], lw=0.6, zorder=2)
         ax.bar(i, d, 0.55, bottom=l, color=co, alpha=0.40,
                edgecolor=C["bg"], lw=0.6, zorder=2)
+        if l > top * 0.10:
+            ax.text(i, l / 2, f"昼\n{l:.0f}万",
+                    ha="center", va="center", fontsize=6.5,
+                    color="white", fontweight="bold", zorder=3)
+        if d > top * 0.10:
+            ax.text(i, l + d / 2, f"夜\n{d:.0f}万",
+                    ha="center", va="center", fontsize=6.5,
+                    color=C["text"], fontweight="bold", zorder=3)
     for i, t in enumerate(tot):
         if t > 0:
             ax.text(i, t + top*0.04, f"{t:.0f}万",

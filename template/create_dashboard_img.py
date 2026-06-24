@@ -198,7 +198,8 @@ def plot_c4(ax, daily):
     ax.set_facecolor(C["bg"])
     ax.set_aspect("equal")
 
-    ax.pie(vals, colors=colors, startangle=90,
+    R = 1.18
+    ax.pie(vals, colors=colors, startangle=90, radius=R,
            wedgeprops=dict(edgecolor=C["bg"], linewidth=2.5),
            counterclock=False)
 
@@ -208,15 +209,16 @@ def plot_c4(ax, daily):
         pct   = v / total
         sweep = pct * 360
         mid_r = np.deg2rad(start_deg - sweep / 2)
-        cx    = 0.60 * np.cos(mid_r)
-        cy    = 0.60 * np.sin(mid_r)
+        cx    = 0.65 * R * np.cos(mid_r)
+        cy    = 0.65 * R * np.sin(mid_r)
         ax.text(cx, cy,
                 f"{lbl}\n{v/10000:.0f}万\n{pct*100:.1f}%",
                 ha="center", va="center",
-                fontsize=10.5, color="#03071e", fontweight="bold", zorder=5)
+                fontsize=10.5, color="white", fontweight="bold", zorder=5)
         start_deg -= sweep
 
-    sub_title(ax, "② カテゴリ別 構成")
+    ax.set_title("② カテゴリ別 構成", loc="left",
+                 fontsize=12.5, fontweight="bold", color=C["text"], pad=4)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -344,7 +346,7 @@ def plot_c3(ax, daily):
         if pct >= THRESH_IN:
             ax.text(mid, 0, f"{lbl}\n{v/10000:.0f}万\n{pct:.1f}%",
                     ha="center", va="center", fontsize=9.5,
-                    color="#03071e", fontweight="bold", zorder=5)
+                    color="white", fontweight="bold", zorder=5)
         else:
             top = BAR_H / 2
             ax.plot([mid, mid], [top, top + 0.07],
@@ -403,10 +405,8 @@ def build_dashboard(year, month, daily, shohin):
 
     fig.text(0.5, 0.977,
              f"{year}年{month}月  営業日報 ダッシュボード",
-             ha="center", va="top", fontsize=19, fontweight="bold",
-             color=C["c1"],
-             bbox=dict(boxstyle="round,pad=0.4", fc=C["card"],
-                       ec=C["c1"], alpha=0.85, lw=1.5))
+             ha="center", va="top", fontsize=24, fontweight="bold",
+             color=C["c1"])
 
     # 上段: KPI（row0）+ ①②（row1）を密着配置
     gs_top = gridspec.GridSpec(
@@ -454,6 +454,9 @@ def build_dashboard(year, month, daily, shohin):
     # ── ② カテゴリ別構成（右4/12）───────────────────────────
     ax4 = fig.add_subplot(gs_top[1, 8:12])
     plot_c4(ax4, daily)
+    # ② のみKPIとの間を空ける（上端を下げる）
+    p = ax4.get_position()
+    ax4.set_position([p.x0, p.y0, p.width, p.height - 0.04])
 
     # ── ③ 曜日別（cols0-2）──────────────────────────────────
     ax2 = fig.add_subplot(gs_bot[0, 0:3])

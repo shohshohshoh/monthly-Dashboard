@@ -2,51 +2,79 @@
 
 ## 概要
 
-営業日報（Excelファイル）を集計し、ダッシュボード形式のPowerPointを自動生成するPythonプロジェクト。
+営業日報（Excelファイル）を集計し、ダッシュボードPNG・レポートExcel・PowerPointを自動生成するWebアプリ。
+FastAPI（バックエンド）＋ React/Vite（フロントエンド）構成。
 
 ## ディレクトリ構成
 
 ```
 test-01/
-├── data/               # 営業日報Excelファイル（★営業日報YYYY年M月.xlsx）
+├── data/                        # 営業日報Excelファイル（★営業日報YYYY年M月.xlsx）
 ├── template/
-│   ├── dashboard_template.py      # ダッシュボード生成スクリプト（メインテンプレート）
-│   └── ダッシュボードテンプレート.pptx  # PowerPointテンプレート
-└── list_all.xlsx       # 集計済み一覧データ
+│   ├── server.py                # FastAPI バックエンド（port 8000）
+│   ├── create_daily.py          # ① 営業日報 → daily_{Y}_{M}.xlsx
+│   ├── create_report.py         # ② daily → report_{Y}_{M}.xlsx
+│   ├── create_dashboard_img.py  # ③ daily → dashboard_{Y}_{M}.png
+│   └── create_pptx.py           # ④ PNG → dashboard_{Y}_{M}.pptx
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx              # メイン React コンポーネント
+│   │   └── App.css              # スタイル
+│   └── public/data/             # 生成ファイルの出力先
+└── start.bat                    # バックエンド＋フロントエンド同時起動
 ```
 
-## 主要ファイル
+## 生成パイプライン
 
-- [template/dashboard_template.py](template/dashboard_template.py) — ダッシュボード生成スクリプト。`[CONFIG]` タグのついた箇所がカスタマイズポイント。
-- [data/](data/) — 月次営業日報Excelファイル（2024年8月〜2026年現在）
+```
+data/★営業日報{Y}年{M}月.xlsx
+  └─ create_daily.py ─→ daily_{Y}_{M}.xlsx
+       └─ create_report.py ─→ report_{Y}_{M}.xlsx
+       └─ create_dashboard_img.py ─→ dashboard_{Y}_{M}.png
+            └─ create_pptx.py ─→ dashboard_{Y}_{M}.pptx
+```
+
+すべての出力は `frontend/public/data/` に保存される。
+
+## 起動方法
+
+```bat
+# 両サーバーを同時起動（推奨）
+start.bat
+
+# 個別起動
+cd template
+python -m uvicorn server:app --port 8000 --reload
+
+cd frontend
+npm run dev
+```
+
+- バックエンド: http://localhost:8000
+- フロントエンド: http://localhost:5173
+
+## APIエンドポイント（server.py）
+
+| エンドポイント | 内容 |
+|---|---|
+| `POST /api/check` | ソース・出力ファイルの存在確認 |
+| `POST /api/generate` | パイプライン全体を実行して生成 |
 
 ## 技術スタック
 
-- Python 3.x
-- matplotlib / mpl_toolkits（3Dグラフ・ネオングロウグラフ）
-- python-pptx（PowerPoint生成）
-- numpy
-- openpyxl / pandas（Excelデータ読み込み用途）
+- **バックエンド**: Python 3.x、FastAPI、uvicorn
+- **データ処理**: openpyxl、numpy、matplotlib、python-pptx
+- **フロントエンド**: React 18、Vite、CSS（カスタム）
 
-## スクリプトの実行方法
+## スクリプト個別実行
 
 ```bash
 cd template
-python dashboard_template.py
-# → my_dashboard.pptx が生成される
+python create_daily.py 2026 5
+python create_report.py 2026 5
+python create_dashboard_img.py 2026 5
+python create_pptx.py 2026 5
 ```
-
-## カスタマイズポイント（dashboard_template.py）
-
-| タグ | 内容 |
-|------|------|
-| `[CONFIG] 基本設定` | タイトル・サブタイトル・出力ファイル名 |
-| `[CONFIG] カラーパレット` | 全体の配色 |
-| `[CONFIG] KPI カード` | KPI名と値（最大5個） |
-| `[CONFIG] 外的要因イベント` | イベントラベル（最大9個） |
-| `[CONFIG] 季節性ラベル` | 12ヶ月分の季節指数（超/高/中/低） |
-| `[CONFIG] データ読み込み` | `load_data()` 関数 — 実データへの差し替え箇所 |
-| `[CONFIG] チャート定義` | 各 `chart_N()` 関数 — グラフ内容の差し替え箇所 |
 
 ---
 
@@ -67,27 +95,28 @@ python dashboard_template.py
 
 2. **コミットメッセージ規則**
    - 日本語OK。変更の「なぜ」を一言で書く。
-   - 例: `KPIカードに売上達成率を追加`, `load_data()を実データExcelに切り替え`
+   - 例: `create_daily: 翌月混入日付を除外`, `①グラフY軸上限を最大値+15万に変更`
 
-3. **大きなExcelファイルはGit管理対象外**
-   - `data/` 配下のExcelファイルは `.gitignore` で除外する。
-   - スクリプト（.py）とテンプレート（.pptx）のみバージョン管理する。
+3. **大きなExcelファイル・生成物はGit管理対象外**
+   - `data/` 配下の営業日報Excelは除外。
+   - スクリプト（.py）、React（.jsx/.css）のみバージョン管理。
 
-4. **`.gitignore` 推奨設定**
+4. **`.gitignore` 設定**
    ```
-   data/
+   /data/
    *.xlsx
+   !/frontend/public/data/*.xlsx
    __pycache__/
    *.pyc
-   my_dashboard.pptx
+   .env
    ```
 
 5. **ブランチ戦略**
    - 通常作業は `main` ブランチで直接運用。
-   - 大きな機能追加や実験的な変更は `feature/XXX` ブランチを切る。
+   - 大きな機能追加・実験的変更は `feature/XXX` ブランチを切る。
 
 ### 注意事項
 
 - プッシュ前に `git status` で変更内容を確認する。
 - `.env` や認証情報を含むファイルは絶対にコミットしない。
-- 出力ファイル（`my_dashboard.pptx` など）はコミット対象外。
+- 出力ファイル（PNG・PPTX）はコミット対象外。

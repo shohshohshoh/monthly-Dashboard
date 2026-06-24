@@ -41,8 +41,15 @@ R_HIRU_AMT  = 50  # 昼食売上
 R_YU_AMT    = 51  # 夕食売上
 
 
+def _int(val):
+    try:
+        return int(val) if val is not None else 0
+    except (ValueError, TypeError):
+        return 0
+
+
 def _sum(ws, r_start, r_end, col):
-    return sum(int(ws.cell(r, col).value or 0) for r in range(r_start, r_end + 1))
+    return sum(_int(ws.cell(r, col).value) for r in range(r_start, r_end + 1))
 
 
 def create_daily(year: int, month: int) -> Path:
@@ -87,23 +94,23 @@ def create_daily(year: int, month: int) -> Path:
             "祝日":         kyujitsu,
             "昼天気":       None,
             "夜天気":       None,
-            "総売上高":     int(ws_data.cell(R_TOTAL,    col).value or 0),
-            "純売上高":     int(ws_data.cell(R_JUN,      col).value or 0),
-            "現金":         int(ws_data.cell(R_CASH,     col).value or 0),
-            "JCB":          int(ws_data.cell(R_JCB,      col).value or 0),
-            "千葉銀行":     int(ws_data.cell(R_CHIBA,    col).value or 0),
+            "総売上高":     _int(ws_data.cell(R_TOTAL,    col).value),
+            "純売上高":     _int(ws_data.cell(R_JUN,      col).value),
+            "現金":         _int(ws_data.cell(R_CASH,     col).value),
+            "JCB":          _int(ws_data.cell(R_JCB,      col).value),
+            "千葉銀行":     _int(ws_data.cell(R_CHIBA,    col).value),
             "アクアコイン": _sum(ws_data, R_AQUA_S, R_AQUA_E, col),
             "PayPay":       _sum(ws_data, R_PAY_S,  R_PAY_E,  col),
             "ふるさと納税": _sum(ws_data, R_FURU_S, R_FURU_E, col),
-            "売掛金":       int(ws_data.cell(R_URIKAKE,  col).value or 0),
-            "FOOD":         int(ws_data.cell(R_FOOD,     col).value or 0),
-            "DRINK":        int(ws_data.cell(R_DRINK,    col).value or 0),
-            "売店":         int(ws_data.cell(R_BAITEN,   col).value or 0),
-            "その他":       int(ws_data.cell(R_OTHER,    col).value or 0),
-            "昼食客数":     int(ws_data.cell(R_HIRU_KAK, col).value or 0),
-            "夕食客数":     int(ws_data.cell(R_YU_KAK,   col).value or 0),
-            "昼食売上":     int(ws_data.cell(R_HIRU_AMT, col).value or 0),
-            "夕食売上":     int(ws_data.cell(R_YU_AMT,   col).value or 0),
+            "売掛金":       _int(ws_data.cell(R_URIKAKE,  col).value),
+            "FOOD":         _int(ws_data.cell(R_FOOD,     col).value),
+            "DRINK":        _int(ws_data.cell(R_DRINK,    col).value),
+            "売店":         _int(ws_data.cell(R_BAITEN,   col).value),
+            "その他":       _int(ws_data.cell(R_OTHER,    col).value),
+            "昼食客数":     _int(ws_data.cell(R_HIRU_KAK, col).value),
+            "夕食客数":     _int(ws_data.cell(R_YU_KAK,   col).value),
+            "昼食売上":     _int(ws_data.cell(R_HIRU_AMT, col).value),
+            "夕食売上":     _int(ws_data.cell(R_YU_AMT,   col).value),
         }
         daily_rows.append(row)
 

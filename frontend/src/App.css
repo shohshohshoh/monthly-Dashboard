@@ -163,65 +163,6 @@ body {
   color: var(--text);
 }
 
-/* ── 生成履歴 ── */
-.history-title {
-  font-size: 1rem;
-  color: var(--sub);
-  margin-bottom: 12px;
-  letter-spacing: 0.05em;
-}
-
-.history-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.history-item {
-  background: var(--card);
-  border: 1px solid var(--grid);
-  border-radius: var(--radius);
-  padding: 14px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.history-item:hover {
-  border-color: var(--c1);
-  box-shadow: 0 2px 8px rgba(26,115,232,0.10);
-}
-
-.history-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.history-ym {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--c1);
-}
-
-.history-file {
-  font-size: 0.82rem;
-  color: var(--sub);
-}
-
-.history-date {
-  font-size: 0.78rem;
-  color: var(--sub);
-}
-
-.history-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
 
 /* ── ダッシュボード画像 ── */
 .dashboard-card {

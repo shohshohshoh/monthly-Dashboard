@@ -1,13 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const STORAGE_KEY = 'dashboard_history'
-
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }
-  catch { return [] }
-}
 
 function validate(value) {
   if (!/^\d{4}\/\d{1,2}$/.test(value)) return '形式は yyyy/m で入力してください（例: 2026/5）'
@@ -63,14 +57,9 @@ export default function App() {
   const [yearMonth, setYearMonth]       = useState('')
   const [error, setError]               = useState('')
   const [phase, setPhase]               = useState('idle') // idle | checking | confirm | generating | done | error
-  const [currentYM, setCurrentYM]       = useState(null)  // {year, month}
+  const [currentYM, setCurrentYM]       = useState(null)
   const [lightboxSrc, setLightboxSrc]   = useState(null)
   const [showDownload, setShowDownload] = useState(false)
-  const [history, setHistory]           = useState(loadHistory)
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history))
-  }, [history])
 
   function handleChange(e) {
     setYearMonth(e.target.value)
@@ -131,12 +120,6 @@ export default function App() {
       const { year, month } = ym
       const src = `/data/dashboard_${year}_${month}.png?t=${Date.now()}`
 
-      const key = `${year}/${month}`
-      setHistory(prev => {
-        const filtered = prev.filter(h => h.yearMonth !== key)
-        return [{ yearMonth: key, year, month, generatedAt: new Date().toLocaleString('ja-JP') }, ...filtered]
-      })
-
       setPhase('done')
       setCurrentYM(ym)
       setLightboxSrc(src)
@@ -155,13 +138,6 @@ export default function App() {
   function handleCancelOverwrite() {
     setPhase('idle')
     setCurrentYM(null)
-  }
-
-  function handleOpen(entry) {
-    const ym = entry.year ? entry : parseYM(entry.yearMonth)
-    setCurrentYM(ym)
-    setLightboxSrc(`/data/dashboard_${ym.year}_${ym.month}.png?t=${Date.now()}`)
-    setShowDownload(false)
   }
 
   function handleCloseLightbox() {
@@ -203,10 +179,6 @@ export default function App() {
     }
   }
 
-  function handleDelete(ym) {
-    setHistory(prev => prev.filter(h => h.yearMonth !== ym))
-  }
-
   const isLoading    = phase === 'checking' || phase === 'generating'
   const loadingLabel = phase === 'checking' ? '確認中…' : '生成中…'
 
@@ -218,7 +190,6 @@ export default function App() {
       </header>
 
       <main className="main">
-        {/* 入力フォーム */}
         <form className="card" onSubmit={handleSubmit}>
           <p className="card-desc">
             年月を入力すると、営業日報Excelからダッシュボード・レポート・PowerPointを生成します。
@@ -250,35 +221,8 @@ export default function App() {
             <p className="msg msg--success">✔ 生成が完了しました</p>
           )}
         </form>
-
-        {/* 生成履歴 */}
-        {history.length > 0 && (
-          <section className="history">
-            <h2 className="history-title">生成済みダッシュボード</h2>
-            <ul className="history-list">
-              {history.map(h => (
-                <li key={h.yearMonth} className="history-item">
-                  <div className="history-info">
-                    <span className="history-ym">{h.yearMonth}</span>
-                    <span className="history-date">{h.generatedAt}</span>
-                  </div>
-                  <div className="history-actions">
-                    <button className="btn btn--small" onClick={() => handleOpen(h)}>開く</button>
-                    <button
-                      className="btn btn--small btn--danger"
-                      onClick={() => handleDelete(h.yearMonth)}
-                    >
-                      削除
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
       </main>
 
-      {/* 上書き確認モーダル */}
       {phase === 'confirm' && currentYM && (
         <Modal
           title="上書き確認"
@@ -291,7 +235,6 @@ export default function App() {
         />
       )}
 
-      {/* ダウンロード確認モーダル（ライトボックス外） */}
       {showDownload && !lightboxSrc && (
         <Modal
           title="ダウンロード"
@@ -303,7 +246,6 @@ export default function App() {
         />
       )}
 
-      {/* ライトボックス（ダッシュボード全画面表示） */}
       {lightboxSrc && (
         <Lightbox
           src={lightboxSrc}

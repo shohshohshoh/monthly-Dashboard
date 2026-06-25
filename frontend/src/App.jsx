@@ -17,6 +17,27 @@ function parseYM(yearMonth) {
   return { year: y, month: m }
 }
 
+function b64toBlob(b64, mime) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+  return new Blob([bytes], { type: mime })
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function downloadPath(path, filename) {
+  const a = document.createElement('a')
+  a.href = path
+  a.download = filename
+  a.click()
+}
+
 function Modal({ title, message, onConfirm, onCancel, confirmLabel = 'はい', cancelLabel = 'キャンセル', danger = false }) {
   return (
     <div className="modal-overlay">
@@ -32,7 +53,7 @@ function Modal({ title, message, onConfirm, onCancel, confirmLabel = 'はい', c
   )
 }
 
-function Lightbox({ src, label, onClose, onDownload }) {
+function Lightbox({ src, label, onClose, onDownloadPptx, onDownloadDaily, onDownloadReport }) {
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -40,12 +61,14 @@ function Lightbox({ src, label, onClose, onDownload }) {
   }, [onClose])
 
   return (
-    <div className="lightbox" onClick={onClose}>
-      <div className="lightbox-inner" onClick={e => e.stopPropagation()}>
+    <div className="lightbox">
+      <div className="lightbox-inner">
         <div className="lightbox-bar">
           <span className="lightbox-label">{label}</span>
           <div className="lightbox-actions">
-            <button className="btn btn--small" onClick={onDownload}>PPT ダウンロード</button>
+            <button className="btn btn--small" onClick={onDownloadDaily}>日次 Excel</button>
+            <button className="btn btn--small" onClick={onDownloadReport}>レポート Excel</button>
+            <button className="btn btn--small" onClick={onDownloadPptx}>PowerPoint</button>
             <button className="lightbox-close" onClick={onClose} title="閉じる（Esc）">✕</button>
           </div>
         </div>
@@ -56,14 +79,19 @@ function Lightbox({ src, label, onClose, onDownload }) {
 }
 
 export default function App() {
-  const [yearMonth, setYearMonth]       = useState('')
-  const [error, setError]               = useState('')
-  const [phase, setPhase]               = useState('idle') // idle | checking | confirm | generating | done | error
-  const [currentYM, setCurrentYM]       = useState(null)
-  const [lightboxSrc, setLightboxSrc]   = useState(null)
-  const [showDownload, setShowDownload] = useState(false)
-  const [pptxBlob, setPptxBlob]         = useState(null)
+  const [yearMonth, setYearMonth]     = useState('')
+  const [error, setError]             = useState('')
+  const [phase, setPhase]             = useState('idle')
+  const [currentYM, setCurrentYM]     = useState(null)
+  const [lightboxSrc, setLightboxSrc] = useState(null)
+
+  // ダウンロード用 blob（クラウドモード）
+  const [pptxBlob, setPptxBlob]       = useState(null)
   const [pptxFilename, setPptxFilename] = useState(null)
+  const [dailyBlob, setDailyBlob]     = useState(null)
+  const [dailyFilename, setDailyFilename] = useState(null)
+  const [reportBlob, setReportBlob]   = useState(null)
+  const [reportFilename, setReportFilename] = useState(null)
 
   function handleChange(e) {
     setYearMonth(e.target.value)
@@ -90,17 +118,20 @@ export default function App() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '生成に失敗しました')
 
-        const pngBytes = Uint8Array.from(atob(data.png_base64), c => c.charCodeAt(0))
-        const pngUrl = URL.createObjectURL(new Blob([pngBytes], { type: 'image/png' }))
+        const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
-        const pptxBytes = Uint8Array.from(atob(data.pptx_base64), c => c.charCodeAt(0))
-        setPptxBlob(new Blob([pptxBytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
-        setPptxFilename(data.filename)
+        setPptxBlob(b64toBlob(data.pptx_base64, PPTX))
+        setPptxFilename(data.pptx_filename)
+        setDailyBlob(b64toBlob(data.daily_base64, XLSX))
+        setDailyFilename(data.daily_filename)
+        setReportBlob(b64toBlob(data.report_base64, XLSX))
+        setReportFilename(data.report_filename)
 
+        const pngUrl = URL.createObjectURL(b64toBlob(data.png_base64, 'image/png'))
         setCurrentYM(ym)
         setPhase('done')
         setLightboxSrc(pngUrl)
-        setShowDownload(true)
       } catch (err) {
         setPhase('error')
         setError(err.message || '生成中にエラーが発生しました')
@@ -126,7 +157,6 @@ export default function App() {
       }
 
       setCurrentYM(ym)
-
       const anyExists = info.daily_exists || info.report_exists ||
                         info.dashboard_exists || info.pptx_exists
       if (anyExists) {
@@ -155,7 +185,6 @@ export default function App() {
       setPhase('done')
       setCurrentYM(ym)
       setLightboxSrc(`/data/dashboard_${year}_${month}.png?t=${Date.now()}`)
-      setShowDownload(true)
     } catch (err) {
       setPhase('error')
       setError(err.message || '生成中にエラーが発生しました')
@@ -175,52 +204,24 @@ export default function App() {
   function handleCloseLightbox() {
     if (lightboxSrc && lightboxSrc.startsWith('blob:')) URL.revokeObjectURL(lightboxSrc)
     setLightboxSrc(null)
-    setShowDownload(false)
   }
 
-  async function handleDownload() {
-    if (IS_CLOUD && pptxBlob) {
-      const url = URL.createObjectURL(pptxBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = pptxFilename || 'dashboard.pptx'
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-      setShowDownload(false)
-      return
-    }
+  function handleDownloadPptx() {
+    if (IS_CLOUD && pptxBlob) { downloadBlob(pptxBlob, pptxFilename); return }
+    if (currentYM) downloadPath(`/data/dashboard_${currentYM.year}_${currentYM.month}.pptx`,
+                                `dashboard_${currentYM.year}_${currentYM.month}.pptx`)
+  }
 
-    if (!currentYM) return
-    const { year, month } = currentYM
-    setShowDownload(false)
+  function handleDownloadDaily() {
+    if (IS_CLOUD && dailyBlob) { downloadBlob(dailyBlob, dailyFilename); return }
+    if (currentYM) downloadPath(`/data/daily_${currentYM.year}_${currentYM.month}.xlsx`,
+                                `daily_${currentYM.year}_${currentYM.month}.xlsx`)
+  }
 
-    const filename = `dashboard_${year}_${month}.pptx`
-    try {
-      if (typeof window.showSaveFilePicker === 'function') {
-        const handle = await window.showSaveFilePicker({
-          suggestedName: filename,
-          types: [{
-            description: 'PowerPoint',
-            accept: { 'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'] },
-          }],
-        })
-        const response = await fetch(`/data/${filename}`)
-        if (!response.ok) throw new Error('PPTXファイルが見つかりません')
-        const blob = await response.blob()
-        const writable = await handle.createWritable()
-        await writable.write(blob)
-        await writable.close()
-      } else {
-        const a = document.createElement('a')
-        a.href = `/data/${filename}`
-        a.download = filename
-        a.click()
-      }
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        setError(`ダウンロードに失敗しました: ${err.message}`)
-      }
-    }
+  function handleDownloadReport() {
+    if (IS_CLOUD && reportBlob) { downloadBlob(reportBlob, reportFilename); return }
+    if (currentYM) downloadPath(`/data/report_${currentYM.year}_${currentYM.month}.xlsx`,
+                                `report_${currentYM.year}_${currentYM.month}.xlsx`)
   }
 
   const isLoading    = phase === 'checking' || phase === 'generating'
@@ -289,23 +290,14 @@ export default function App() {
         />
       )}
 
-      {showDownload && !lightboxSrc && (
-        <Modal
-          title="ダウンロード"
-          message="PowerPointファイルをダウンロードしますか？"
-          confirmLabel="ダウンロード"
-          cancelLabel="後で"
-          onConfirm={handleDownload}
-          onCancel={() => setShowDownload(false)}
-        />
-      )}
-
       {lightboxSrc && (
         <Lightbox
           src={lightboxSrc}
           label={currentYM ? `ダッシュボード ${currentYM.year}/${currentYM.month}` : 'ダッシュボード'}
           onClose={handleCloseLightbox}
-          onDownload={handleDownload}
+          onDownloadPptx={handleDownloadPptx}
+          onDownloadDaily={handleDownloadDaily}
+          onDownloadReport={handleDownloadReport}
         />
       )}
     </div>

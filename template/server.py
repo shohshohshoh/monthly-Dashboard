@@ -61,13 +61,19 @@ def _run_pipeline(y: int, m: int):
 
 
 def _base64_result(y: int, m: int) -> dict:
-    png_path  = DATA / f"dashboard_{y}_{m}.png"
-    pptx_path = DATA / f"dashboard_{y}_{m}.pptx"
+    png_path    = DATA / f"dashboard_{y}_{m}.png"
+    pptx_path   = DATA / f"dashboard_{y}_{m}.pptx"
+    daily_path  = DATA / f"daily_{y}_{m}.xlsx"
+    report_path = DATA / f"report_{y}_{m}.xlsx"
     return {
-        "success":     True,
-        "png_base64":  base64.b64encode(png_path.read_bytes()).decode(),
-        "pptx_base64": base64.b64encode(pptx_path.read_bytes()).decode(),
-        "filename":    f"dashboard_{y}_{m}.pptx",
+        "success":         True,
+        "png_base64":      base64.b64encode(png_path.read_bytes()).decode(),
+        "pptx_base64":     base64.b64encode(pptx_path.read_bytes()).decode(),
+        "pptx_filename":   f"dashboard_{y}_{m}.pptx",
+        "daily_base64":    base64.b64encode(daily_path.read_bytes()).decode(),
+        "daily_filename":  f"daily_{y}_{m}.xlsx",
+        "report_base64":   base64.b64encode(report_path.read_bytes()).decode(),
+        "report_filename": f"report_{y}_{m}.xlsx",
     }
 
 

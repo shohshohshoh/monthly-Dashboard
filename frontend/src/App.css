@@ -238,53 +238,6 @@ body {
   margin-top: 8px;
 }
 
-/* ── ファイルドロップゾーン ── */
-.file-drop {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 28px 20px;
-  border: 2px dashed var(--grid);
-  border-radius: var(--radius);
-  background: #f8fafc;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-  text-align: center;
-}
-
-.file-drop:hover,
-.file-drop--over {
-  border-color: var(--c1);
-  background: rgba(26, 115, 232, 0.05);
-}
-
-.file-drop--has-file {
-  border-color: var(--c3);
-  background: rgba(24, 128, 56, 0.05);
-}
-
-.file-drop-icon {
-  font-size: 2rem;
-  line-height: 1;
-}
-
-.file-drop-text {
-  font-size: 0.88rem;
-  color: var(--sub);
-  line-height: 1.5;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-drop--has-file .file-drop-text {
-  color: var(--c3);
-  font-weight: bold;
-}
-
 /* ── ライトボックス（全画面PNG表示） ── */
 .lightbox {
   position: fixed;

@@ -26,6 +26,13 @@ try:
     import japanize_matplotlib  # Render(Linux)環境で日本語フォントを有効化
 except ImportError:
     pass
+
+# フォントキャッシュを再構築して新規インストールフォントを認識させる
+try:
+    fm._rebuild()
+except Exception:
+    pass
+
 import openpyxl
 
 ROOT    = Path(__file__).parent.parent
@@ -34,7 +41,8 @@ OUT_DIR = ROOT / "frontend" / "public" / "data"
 
 _avail = {f.name for f in fm.fontManager.ttflist}
 JP = next(
-    (f for f in ["Yu Gothic", "Meiryo", "MS Gothic", "IPAexGothic", "IPAGothic", "Noto Sans CJK JP"]
+    (f for f in ["IPAexGothic", "IPAGothic", "IPAPGothic", "Yu Gothic", "Meiryo",
+                 "MS Gothic", "Noto Sans CJK JP", "Noto Sans JP"]
      if f in _avail),
     "sans-serif"
 )

@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+openpyxl
+numpy
+matplotlib
+japanize-matplotlib
+python-pptx
+python-multipart

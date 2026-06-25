@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const NO_BACKEND = import.meta.env.PROD && !import.meta.env.VITE_API_URL
+const IS_CLOUD = !!import.meta.env.VITE_API_URL
 
 function validate(value) {
   if (!/^\d{4}\/\d{1,2}$/.test(value)) return '形式は yyyy/m で入力してください（例: 2026/5）'
@@ -14,6 +15,11 @@ function validate(value) {
 function parseYM(yearMonth) {
   const [y, m] = yearMonth.split('/').map(Number)
   return { year: y, month: m }
+}
+
+function parseYMFromFilename(name) {
+  const m = name.match(/(\d{4})年(\d{1,2})月/)
+  return m ? `${m[1]}/${m[2]}` : ''
 }
 
 function Modal({ title, message, onConfirm, onCancel, confirmLabel = 'はい', cancelLabel = 'キャンセル', danger = false }) {
@@ -62,6 +68,32 @@ export default function App() {
   const [lightboxSrc, setLightboxSrc]   = useState(null)
   const [showDownload, setShowDownload] = useState(false)
 
+  // cloud mode state
+  const [file, setFile]           = useState(null)
+  const [pptxBlob, setPptxBlob]   = useState(null)
+  const [pptxFilename, setPptxFilename] = useState(null)
+  const [dragOver, setDragOver]   = useState(false)
+  const fileInputRef              = useRef(null)
+
+  function handleFileSelect(selected) {
+    if (!selected || !selected.name.endsWith('.xlsx')) {
+      setError('xlsx ファイルを選択してください')
+      return
+    }
+    setFile(selected)
+    setError('')
+    const ym = parseYMFromFilename(selected.name)
+    if (ym) setYearMonth(ym)
+    if (phase !== 'idle') setPhase('idle')
+  }
+
+  function handleDrop(e) {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files[0]
+    if (f) handleFileSelect(f)
+  }
+
   function handleChange(e) {
     setYearMonth(e.target.value)
     setError('')
@@ -70,6 +102,48 @@ export default function App() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+
+    if (IS_CLOUD) {
+      if (!file) { setError('Excelファイルを選択してください'); return }
+      const msg = validate(yearMonth)
+      if (msg) { setError(msg); return }
+
+      const ym = parseYM(yearMonth)
+      setError('')
+      setPhase('generating')
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('year', String(ym.year))
+        formData.append('month', String(ym.month))
+
+        const res = await fetch(`${API}/api/upload-and-generate`, {
+          method: 'POST',
+          body: formData,
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || '生成に失敗しました')
+
+        const pngBytes = Uint8Array.from(atob(data.png_base64), c => c.charCodeAt(0))
+        const pngUrl = URL.createObjectURL(new Blob([pngBytes], { type: 'image/png' }))
+
+        const pptxBytes = Uint8Array.from(atob(data.pptx_base64), c => c.charCodeAt(0))
+        setPptxBlob(new Blob([pptxBytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
+        setPptxFilename(data.filename)
+
+        setCurrentYM(ym)
+        setPhase('done')
+        setLightboxSrc(pngUrl)
+        setShowDownload(true)
+      } catch (err) {
+        setPhase('error')
+        setError(err.message || '生成中にエラーが発生しました')
+      }
+      return
+    }
+
+    // ローカルモード
     const msg = validate(yearMonth)
     if (msg) { setError(msg); return }
 
@@ -142,11 +216,23 @@ export default function App() {
   }
 
   function handleCloseLightbox() {
+    if (lightboxSrc && lightboxSrc.startsWith('blob:')) URL.revokeObjectURL(lightboxSrc)
     setLightboxSrc(null)
     setShowDownload(false)
   }
 
   async function handleDownload() {
+    if (IS_CLOUD && pptxBlob) {
+      const url = URL.createObjectURL(pptxBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = pptxFilename || 'dashboard.pptx'
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setShowDownload(false)
+      return
+    }
+
     if (!currentYM) return
     const { year, month } = currentYM
     setShowDownload(false)
@@ -182,6 +268,7 @@ export default function App() {
 
   const isLoading    = phase === 'checking' || phase === 'generating'
   const loadingLabel = phase === 'checking' ? '確認中…' : '生成中…'
+  const canSubmit    = !isLoading && (!IS_CLOUD || !!file)
 
   return (
     <div className="app">
@@ -201,8 +288,32 @@ export default function App() {
         )}
         <form className="card" onSubmit={handleSubmit} style={NO_BACKEND ? { display: 'none' } : {}}>
           <p className="card-desc">
-            年月を入力すると、営業日報Excelからダッシュボード・レポート・PowerPointを生成します。
+            {IS_CLOUD
+              ? '営業日報Excelをアップロードすると、ダッシュボード・レポート・PowerPointを生成してダウンロードできます。'
+              : '年月を入力すると、営業日報Excelからダッシュボード・レポート・PowerPointを生成します。'}
           </p>
+
+          {IS_CLOUD && (
+            <div
+              className={`file-drop${dragOver ? ' file-drop--over' : ''}${file ? ' file-drop--has-file' : ''}`}
+              onDrop={handleDrop}
+              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                style={{ display: 'none' }}
+                onChange={e => { if (e.target.files[0]) handleFileSelect(e.target.files[0]) }}
+              />
+              <span className="file-drop-icon">{file ? '✔' : '📂'}</span>
+              <span className="file-drop-text">
+                {file ? file.name : '★営業日報Excelをドラッグ＆ドロップ、またはクリックして選択'}
+              </span>
+            </div>
+          )}
 
           <label className="label" htmlFor="ym-input">対象年月</label>
           <div className="input-row">
@@ -217,7 +328,7 @@ export default function App() {
               autoComplete="off"
               disabled={isLoading}
             />
-            <button className="btn" type="submit" disabled={isLoading}>
+            <button className="btn" type="submit" disabled={!canSubmit}>
               {isLoading ? loadingLabel : '生成'}
             </button>
           </div>

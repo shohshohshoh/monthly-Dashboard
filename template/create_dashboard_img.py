@@ -22,6 +22,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.font_manager as fm
+try:
+    import japanize_matplotlib  # Render(Linux)環境で日本語フォントを有効化
+except ImportError:
+    pass
 import openpyxl
 
 ROOT    = Path(__file__).parent.parent
@@ -29,7 +33,11 @@ IN_DIR  = ROOT / "frontend" / "public" / "data"
 OUT_DIR = ROOT / "frontend" / "public" / "data"
 
 _avail = {f.name for f in fm.fontManager.ttflist}
-JP = next((f for f in ["Yu Gothic", "Meiryo", "MS Gothic"] if f in _avail), "sans-serif")
+JP = next(
+    (f for f in ["Yu Gothic", "Meiryo", "MS Gothic", "IPAexGothic", "IPAGothic", "Noto Sans CJK JP"]
+     if f in _avail),
+    "sans-serif"
+)
 plt.rcParams.update({"font.family": JP, "axes.unicode_minus": False,
                      "font.weight": "bold"})
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const NO_BACKEND = import.meta.env.PROD && !import.meta.env.VITE_API_URL
 
 function validate(value) {
   if (!/^\d{4}\/\d{1,2}$/.test(value)) return '形式は yyyy/m で入力してください（例: 2026/5）'
@@ -190,7 +191,15 @@ export default function App() {
       </header>
 
       <main className="main">
-        <form className="card" onSubmit={handleSubmit}>
+        {NO_BACKEND && (
+          <div className="card">
+            <p className="msg msg--info">
+              ダッシュボードの生成はローカル環境でのみ利用できます。<br />
+              ローカルで <code>start.bat</code> を起動してください。
+            </p>
+          </div>
+        )}
+        <form className="card" onSubmit={handleSubmit} style={NO_BACKEND ? { display: 'none' } : {}}>
           <p className="card-desc">
             年月を入力すると、営業日報Excelからダッシュボード・レポート・PowerPointを生成します。
           </p>

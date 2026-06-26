@@ -10,7 +10,6 @@
   pip install fastapi uvicorn
 """
 import base64
-import concurrent.futures
 import io
 import json
 import os
@@ -46,34 +45,19 @@ class Req(BaseModel):
     month: int
 
 
-def _run_one(script: str, y: int, m: int):
-    res = subprocess.run(
-        [PY, str(SCRIPTS / script), str(y), str(m)],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        cwd=str(SCRIPTS),
-    )
-    if res.returncode != 0:
-        raise RuntimeError(f"{script} の実行中にエラー:\n{res.stderr or res.stdout}")
-
-
 def _run_pipeline(y: int, m: int):
-    # Step 1: create_daily（後続の両スクリプトが依存するため先に実行）
-    _run_one("create_daily.py", y, m)
-
-    # Step 2: create_report と create_dashboard_img は互いに独立 → 並列実行
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-        futs = [
-            ex.submit(_run_one, "create_report.py", y, m),
-            ex.submit(_run_one, "create_dashboard_img.py", y, m),
-        ]
-        for f in concurrent.futures.as_completed(futs):
-            try:
-                f.result()
-            except RuntimeError as e:
-                raise HTTPException(500, detail=str(e))
-
-    # Step 3: create_pptx（dashboard.png に依存するため最後）
-    _run_one("create_pptx.py", y, m)
+    for script in ["create_daily.py", "create_report.py",
+                   "create_dashboard_img.py", "create_pptx.py"]:
+        res = subprocess.run(
+            [PY, str(SCRIPTS / script), str(y), str(m)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            cwd=str(SCRIPTS),
+        )
+        if res.returncode != 0:
+            raise HTTPException(
+                500,
+                detail=f"{script} の実行中にエラー:\n{res.stderr or res.stdout}",
+            )
 
 
 def _base64_result(y: int, m: int) -> dict:

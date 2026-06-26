@@ -169,3 +169,37 @@ async def drive_generate(req: Req) -> dict:
 
     _run_pipeline(y, m)
     return _base64_result(y, m)
+
+
+@app.get("/api/debug-fonts")
+def debug_fonts():
+    import glob
+    import platform
+    import matplotlib.font_manager as _fm
+
+    avail = sorted({f.name for f in _fm.fontManager.ttflist})
+    jp_info: dict = {}
+    try:
+        import japanize_matplotlib as _jm
+        pkg = Path(_jm.__file__).parent
+        font_files = sorted(pkg.glob("**/*.ttf")) + sorted(pkg.glob("**/*.otf"))
+        jp_info = {
+            "loaded": True,
+            "pkg_dir": str(pkg),
+            "font_files": [str(f) for f in font_files],
+        }
+    except Exception as e:
+        jp_info = {"loaded": False, "error": str(e)}
+
+    sys_fonts = (
+        glob.glob("/usr/share/fonts/**/*.ttf", recursive=True) +
+        glob.glob("/usr/share/fonts/**/*.otf", recursive=True)
+    )
+
+    return {
+        "platform": platform.system(),
+        "available_fonts_count": len(avail),
+        "jp_fonts": [f for f in avail if any(k in f for k in ["IPA", "Noto", "Gothic", "Meiryo", "CJK"])],
+        "japanize_matplotlib": jp_info,
+        "system_font_files": sys_fonts[:20],
+    }

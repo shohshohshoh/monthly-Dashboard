@@ -21,7 +21,6 @@ test-01/
 │   ├── create_dashboard_img.py    # ③ daily → dashboard_{Y}_{M}.png
 │   ├── create_pptx.py             # ④ PNG → dashboard_{Y}_{M}.pptx
 │   ├── requirements.txt           # Python 依存パッケージ
-│   ├── download_fonts.py          # フォントダウンロードスクリプト（現在は不使用）
 │   └── fonts/
 │       ├── BIZUDGothic-Bold.ttf   # 日本語フォント Bold（Render・ローカル共用）
 │       └── BIZUDGothic-Regular.ttf
@@ -31,7 +30,6 @@ test-01/
 │   │   └── App.css                # スタイル
 │   └── public/data/               # 生成ファイルの出力先（ローカル）
 ├── render.yaml                    # Render デプロイ設定
-├── start.bat                      # バックエンド＋フロントエンド同時起動（ローカル用）
 └── .github/workflows/deploy.yml   # GitHub Pages 自動デプロイ
 ```
 
@@ -59,10 +57,6 @@ data/★営業日報{Y}年{M}月.xlsx  ← Google Drive から自動取得（ク
 ## 開発時のローカル起動（コード確認用）
 
 ```bat
-# 両サーバーを同時起動
-start.bat
-
-# 個別起動
 cd template
 python -m uvicorn server:app --port 8000 --reload
 

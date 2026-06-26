@@ -22,15 +22,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.font_manager as fm
+_jp_loaded = False
 try:
-    import japanize_matplotlib  # Render(Linux)環境で日本語フォントを有効化
+    import japanize_matplotlib  # pip install 時にIPAexGothicフォントを同梱
+    _jp_loaded = True
 except ImportError:
-    pass
-
-# フォントキャッシュを再構築して新規インストールフォントを認識させる
-try:
-    fm._rebuild()
-except Exception:
     pass
 
 import openpyxl
@@ -39,15 +35,19 @@ ROOT    = Path(__file__).parent.parent
 IN_DIR  = ROOT / "frontend" / "public" / "data"
 OUT_DIR = ROOT / "frontend" / "public" / "data"
 
-_avail = {f.name for f in fm.fontManager.ttflist}
-JP = next(
-    (f for f in ["IPAexGothic", "IPAGothic", "IPAPGothic", "Yu Gothic", "Meiryo",
-                 "MS Gothic", "Noto Sans CJK JP", "Noto Sans JP"]
-     if f in _avail),
-    "sans-serif"
-)
-plt.rcParams.update({"font.family": JP, "axes.unicode_minus": False,
-                     "font.weight": "bold"})
+if _jp_loaded:
+    # japanize_matplotlib がフォントと font.family を設定済み → 上書きしない
+    plt.rcParams.update({"axes.unicode_minus": False, "font.weight": "bold"})
+else:
+    # ローカル（Windows）環境：システムフォントから検索
+    _avail = {f.name for f in fm.fontManager.ttflist}
+    JP = next(
+        (f for f in ["Yu Gothic", "Meiryo", "MS Gothic", "IPAexGothic", "IPAGothic"]
+         if f in _avail),
+        "sans-serif"
+    )
+    plt.rcParams.update({"font.family": JP, "axes.unicode_minus": False,
+                         "font.weight": "bold"})
 
 C = {
     "bg":   "#f0f4f8", "card": "#ffffff",

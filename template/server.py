@@ -77,37 +77,6 @@ def _base64_result(y: int, m: int) -> dict:
     }
 
 
-@app.post("/api/check")
-def check(req: Req) -> dict:
-    y, m = req.year, req.month
-    return {
-        "source_exists":    (SRC_DIR / f"★営業日報{y}年{m}月.xlsx").exists(),
-        "daily_exists":     (DATA / f"daily_{y}_{m}.xlsx").exists(),
-        "report_exists":    (DATA / f"report_{y}_{m}.xlsx").exists(),
-        "dashboard_exists": (DATA / f"dashboard_{y}_{m}.png").exists(),
-        "pptx_exists":      (DATA / f"dashboard_{y}_{m}.pptx").exists(),
-    }
-
-
-@app.post("/api/generate")
-def generate(req: Req) -> dict:
-    y, m = req.year, req.month
-
-    src = SRC_DIR / f"★営業日報{y}年{m}月.xlsx"
-    if not src.exists():
-        raise HTTPException(
-            404,
-            detail=f"★営業日報{y}年{m}月.xlsx が data/ フォルダに見つかりません。",
-        )
-
-    _run_pipeline(y, m)
-
-    return {
-        "success": True,
-        "message": (f"daily_{y}_{m}.xlsx / report_{y}_{m}.xlsx / "
-                    f"dashboard_{y}_{m}.png / dashboard_{y}_{m}.pptx を生成しました"),
-    }
-
 
 @app.post("/api/upload-and-generate")
 async def upload_and_generate(

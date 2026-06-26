@@ -31,6 +31,16 @@ OUT_DIR = ROOT / "frontend" / "public" / "data"
 def _setup_jp_font():
     import glob as _g
 
+    # 0. ビルド時にダウンロードした BIZ UDGothic Bold を優先（Render 環境）
+    _dl_dir  = Path(__file__).parent / "fonts"
+    _biz_bold = _dl_dir / "BIZUDGothic-Bold.ttf"
+    _biz_reg  = _dl_dir / "BIZUDGothic-Regular.ttf"
+    if _biz_bold.exists():
+        fm.fontManager.addfont(str(_biz_bold))
+        if _biz_reg.exists():
+            fm.fontManager.addfont(str(_biz_reg))
+        return fm.FontProperties(fname=str(_biz_bold)).get_name()
+
     # 1. japanize_matplotlib 同梱フォントを直接登録
     try:
         import japanize_matplotlib as _jm
@@ -69,7 +79,13 @@ def _setup_jp_font():
     )
 
 _JP = _setup_jp_font()
-plt.rcParams.update({"font.family": _JP, "axes.unicode_minus": False, "font.weight": "bold"})
+plt.rcParams.update({
+    "font.family":        _JP,
+    "axes.unicode_minus": False,
+    "font.weight":        "bold",
+    "axes.titleweight":   "bold",
+    "axes.labelweight":   "bold",
+})
 
 C = {
     "bg":   "#f0f4f8", "card": "#ffffff",

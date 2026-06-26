@@ -8,3 +8,4 @@ my_dashboard.pptx
 .env
 *.json
 !/frontend/public/data/*.json
+template/fonts/

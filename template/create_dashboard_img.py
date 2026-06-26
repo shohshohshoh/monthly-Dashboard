@@ -29,7 +29,9 @@ IN_DIR  = ROOT / "frontend" / "public" / "data"
 OUT_DIR = ROOT / "frontend" / "public" / "data"
 
 def _setup_jp_font():
-    # japanize_matplotlib パッケージに同梱されたフォントファイルを直接登録
+    import glob as _g
+
+    # 1. japanize_matplotlib 同梱フォントを直接登録
     try:
         import japanize_matplotlib as _jm
         _pkg = Path(_jm.__file__).parent
@@ -41,10 +43,27 @@ def _setup_jp_font():
     except Exception:
         pass
 
-    # フォールバック：システムフォントから検索（Windows ローカル環境）
+    # 2. システムフォントを全件スキャンして登録（apt-get install fonts-ipafont 後）
+    _sys = (
+        _g.glob("/usr/share/fonts/**/*.ttf", recursive=True) +
+        _g.glob("/usr/share/fonts/**/*.otf", recursive=True)
+    )
+    for _f in _sys:
+        try:
+            fm.fontManager.addfont(_f)
+        except Exception:
+            pass
+    _ipa = next((f for f in _sys if "ipa" in f.lower()), None)
+    if _ipa:
+        try:
+            return fm.FontProperties(fname=_ipa).get_name()
+        except Exception:
+            pass
+
+    # 3. Windows ローカル環境フォント
     _avail = {f.name for f in fm.fontManager.ttflist}
     return next(
-        (f for f in ["Yu Gothic", "Meiryo", "MS Gothic", "IPAexGothic", "IPAGothic"]
+        (f for f in ["Yu Gothic", "Meiryo", "MS Gothic"]
          if f in _avail),
         "sans-serif"
     )

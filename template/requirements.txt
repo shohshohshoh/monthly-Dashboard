@@ -3,6 +3,7 @@ uvicorn[standard]
 openpyxl
 numpy
 matplotlib
+setuptools
 japanize-matplotlib
 python-pptx
 python-multipart

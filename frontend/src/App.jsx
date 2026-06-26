@@ -108,8 +108,10 @@ export default function App() {
     setError('')
 
     if (IS_CLOUD) {
-      setPhase('generating')
-      try {
+      const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+
+      const tryGenerate = async () => {
         const res = await fetch(`${API}/api/drive-generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -117,9 +119,25 @@ export default function App() {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '生成に失敗しました')
+        return data
+      }
 
-        const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      setPhase('generating')
+      try {
+        let data
+        try {
+          data = await tryGenerate()
+        } catch (err) {
+          // ネットワークエラー（コールドスタート）の場合のみ自動リトライ
+          if (err.message === 'Failed to fetch') {
+            setPhase('waking')
+            await new Promise(r => setTimeout(r, 12000))
+            setPhase('generating')
+            data = await tryGenerate()
+          } else {
+            throw err
+          }
+        }
 
         setPptxBlob(b64toBlob(data.pptx_base64, PPTX))
         setPptxFilename(data.pptx_filename)
@@ -134,7 +152,11 @@ export default function App() {
         setLightboxSrc(pngUrl)
       } catch (err) {
         setPhase('error')
-        setError(err.message || '生成中にエラーが発生しました')
+        setError(
+          err.message === 'Failed to fetch'
+            ? 'サーバーに接続できませんでした。しばらくしてから再試行してください。'
+            : err.message || '生成中にエラーが発生しました'
+        )
       }
       return
     }
@@ -271,6 +293,9 @@ export default function App() {
           {error && <p className="msg msg--error">⚠ {error}</p>}
           {phase === 'generating' && (
             <p className="msg msg--info">⏳ データ変換・ダッシュボード生成中…</p>
+          )}
+          {phase === 'waking' && (
+            <p className="msg msg--info">⏳ サーバーを起動しています（初回は約50秒かかります）…</p>
           )}
           {phase === 'done' && (
             <p className="msg msg--success">✔ 生成が完了しました</p>

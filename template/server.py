@@ -268,6 +268,38 @@ async def get_file(file_id: str):
     }
 
 
+@app.get("/api/debug-drive")
+async def debug_drive():
+    """Drive 接続・フォルダアクセス・環境変数の診断"""
+    result = {
+        "GOOGLE_DRIVE_FOLDER_ID":        os.environ.get("GOOGLE_DRIVE_FOLDER_ID",        "未設定"),
+        "GOOGLE_DRIVE_OUTPUT_FOLDER_ID": os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID", "未設定"),
+        "GOOGLE_SERVICE_ACCOUNT_JSON":   "設定あり" if os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") else "未設定",
+    }
+    try:
+        service = _get_drive_service()
+        result["auth"] = "OK"
+    except Exception as e:
+        result["auth"] = f"ERROR: {e}"
+        return result
+
+    out_id = os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID")
+    if out_id:
+        try:
+            files = service.files().list(
+                q=f"'{out_id}' in parents and trashed=false",
+                fields="files(name,id)",
+                pageSize=20,
+            ).execute().get("files", [])
+            result["output_folder_accessible"] = True
+            result["output_folder_files"] = [f["name"] for f in files]
+        except Exception as e:
+            result["output_folder_accessible"] = False
+            result["output_folder_error"] = str(e)
+
+    return result
+
+
 @app.get("/api/debug-fonts")
 def debug_fonts():
     import glob

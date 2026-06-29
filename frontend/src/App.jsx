@@ -85,18 +85,101 @@ export default function App() {
   const [currentYM, setCurrentYM]     = useState(null)
   const [lightboxSrc, setLightboxSrc] = useState(null)
 
-  // ダウンロード用 blob（クラウドモード）
-  const [pptxBlob, setPptxBlob]       = useState(null)
+  // ダウンロード用 blob（クラウドモード・生成直後）
+  const [pptxBlob, setPptxBlob]         = useState(null)
   const [pptxFilename, setPptxFilename] = useState(null)
-  const [dailyBlob, setDailyBlob]     = useState(null)
+  const [dailyBlob, setDailyBlob]       = useState(null)
   const [dailyFilename, setDailyFilename] = useState(null)
-  const [reportBlob, setReportBlob]   = useState(null)
+  const [reportBlob, setReportBlob]     = useState(null)
   const [reportFilename, setReportFilename] = useState(null)
+
+  // 生成済みレポート一覧（Drive）
+  const [reports, setReports]           = useState([])
+  const [reportsLoading, setReportsLoading] = useState(false)
+  const [loadingReportKey, setLoadingReportKey] = useState(null)  // 表示中の年月キー
+
+  // 既存レポートを表示中（Drive ファイル ID を保持）
+  const [viewReport, setViewReport]     = useState(null)
+
+  // アプリ起動時にレポート一覧を取得
+  useEffect(() => {
+    if (!IS_CLOUD) return
+    loadReports()
+  }, [])
+
+  async function loadReports() {
+    setReportsLoading(true)
+    try {
+      const res = await fetch(`${API}/api/list-reports`)
+      const data = await res.json()
+      setReports(data.reports || [])
+    } catch {
+      // 取得失敗は無視
+    } finally {
+      setReportsLoading(false)
+    }
+  }
 
   function handleChange(e) {
     setYearMonth(e.target.value)
     setError('')
     if (phase !== 'idle') setPhase('idle')
+  }
+
+  async function doCloudGenerate(ym) {
+    const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+
+    const tryGenerate = async () => {
+      const res = await fetch(`${API}/api/drive-generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ym),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '生成に失敗しました')
+      return data
+    }
+
+    setViewReport(null)
+    setPhase('generating')
+    try {
+      let data
+      try {
+        data = await tryGenerate()
+      } catch (err) {
+        if (err.message === 'Failed to fetch') {
+          setPhase('waking')
+          await new Promise(r => setTimeout(r, 12000))
+          setPhase('generating')
+          data = await tryGenerate()
+        } else {
+          throw err
+        }
+      }
+
+      setPptxBlob(b64toBlob(data.pptx_base64, PPTX))
+      setPptxFilename(data.pptx_filename)
+      setDailyBlob(b64toBlob(data.daily_base64, XLSX))
+      setDailyFilename(data.daily_filename)
+      setReportBlob(b64toBlob(data.report_base64, XLSX))
+      setReportFilename(data.report_filename)
+
+      const pngUrl = URL.createObjectURL(b64toBlob(data.png_base64, 'image/png'))
+      setCurrentYM(ym)
+      setPhase('done')
+      setLightboxSrc(pngUrl)
+
+      // レポート一覧を更新
+      loadReports()
+    } catch (err) {
+      setPhase('error')
+      setError(
+        err.message === 'Failed to fetch'
+          ? 'サーバーに接続できませんでした。しばらくしてから再試行してください。'
+          : err.message || '生成中にエラーが発生しました'
+      )
+    }
   }
 
   async function handleSubmit(e) {
@@ -108,56 +191,14 @@ export default function App() {
     setError('')
 
     if (IS_CLOUD) {
-      const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      const PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-
-      const tryGenerate = async () => {
-        const res = await fetch(`${API}/api/drive-generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ym),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || '生成に失敗しました')
-        return data
-      }
-
-      setPhase('generating')
-      try {
-        let data
-        try {
-          data = await tryGenerate()
-        } catch (err) {
-          // ネットワークエラー（コールドスタート）の場合のみ自動リトライ
-          if (err.message === 'Failed to fetch') {
-            setPhase('waking')
-            await new Promise(r => setTimeout(r, 12000))
-            setPhase('generating')
-            data = await tryGenerate()
-          } else {
-            throw err
-          }
-        }
-
-        setPptxBlob(b64toBlob(data.pptx_base64, PPTX))
-        setPptxFilename(data.pptx_filename)
-        setDailyBlob(b64toBlob(data.daily_base64, XLSX))
-        setDailyFilename(data.daily_filename)
-        setReportBlob(b64toBlob(data.report_base64, XLSX))
-        setReportFilename(data.report_filename)
-
-        const pngUrl = URL.createObjectURL(b64toBlob(data.png_base64, 'image/png'))
+      // 同月ファイルが Drive に既存なら上書き確認
+      const exists = reports.some(r => r.year === ym.year && r.month === ym.month)
+      if (exists) {
         setCurrentYM(ym)
-        setPhase('done')
-        setLightboxSrc(pngUrl)
-      } catch (err) {
-        setPhase('error')
-        setError(
-          err.message === 'Failed to fetch'
-            ? 'サーバーに接続できませんでした。しばらくしてから再試行してください。'
-            : err.message || '生成中にエラーが発生しました'
-        )
+        setPhase('confirm')
+        return
       }
+      await doCloudGenerate(ym)
       return
     }
 
@@ -215,7 +256,11 @@ export default function App() {
 
   function handleConfirmOverwrite() {
     setPhase('idle')
-    if (currentYM) runGenerate(currentYM)
+    if (IS_CLOUD && currentYM) {
+      doCloudGenerate(currentYM)
+    } else if (currentYM) {
+      runGenerate(currentYM)
+    }
   }
 
   function handleCancelOverwrite() {
@@ -223,30 +268,74 @@ export default function App() {
     setCurrentYM(null)
   }
 
+  // Drive から既存レポートを表示
+  async function handleViewReport(report) {
+    if (!report.png_id) return
+    const key = `${report.year}-${report.month}`
+    setLoadingReportKey(key)
+    try {
+      const res = await fetch(`${API}/api/get-file/${report.png_id}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '取得に失敗しました')
+      const pngUrl = URL.createObjectURL(b64toBlob(data.base64, 'image/png'))
+      setViewReport(report)
+      setCurrentYM({ year: report.year, month: report.month })
+      setLightboxSrc(pngUrl)
+    } catch (err) {
+      setError(err.message || 'レポートの取得に失敗しました')
+    } finally {
+      setLoadingReportKey(null)
+    }
+  }
+
+  // Drive ファイルをダウンロード
+  async function downloadDriveFile(fileId, filename) {
+    try {
+      const res = await fetch(`${API}/api/get-file/${fileId}`)
+      const data = await res.json()
+      downloadBlob(b64toBlob(data.base64, data.mime), filename)
+    } catch {
+      alert('ダウンロードに失敗しました')
+    }
+  }
+
   function handleCloseLightbox() {
     if (lightboxSrc && lightboxSrc.startsWith('blob:')) URL.revokeObjectURL(lightboxSrc)
     setLightboxSrc(null)
+    setViewReport(null)
   }
 
   function handleDownloadPptx() {
+    if (viewReport?.pptx_id) {
+      downloadDriveFile(viewReport.pptx_id, `dashboard_${viewReport.year}_${viewReport.month}.pptx`)
+      return
+    }
     if (IS_CLOUD && pptxBlob) { downloadBlob(pptxBlob, pptxFilename); return }
     if (currentYM) downloadPath(`/data/dashboard_${currentYM.year}_${currentYM.month}.pptx`,
                                 `dashboard_${currentYM.year}_${currentYM.month}.pptx`)
   }
 
   function handleDownloadDaily() {
+    if (viewReport?.daily_id) {
+      downloadDriveFile(viewReport.daily_id, `daily_${viewReport.year}_${viewReport.month}.xlsx`)
+      return
+    }
     if (IS_CLOUD && dailyBlob) { downloadBlob(dailyBlob, dailyFilename); return }
     if (currentYM) downloadPath(`/data/daily_${currentYM.year}_${currentYM.month}.xlsx`,
                                 `daily_${currentYM.year}_${currentYM.month}.xlsx`)
   }
 
   function handleDownloadReport() {
+    if (viewReport?.report_id) {
+      downloadDriveFile(viewReport.report_id, `report_${viewReport.year}_${viewReport.month}.xlsx`)
+      return
+    }
     if (IS_CLOUD && reportBlob) { downloadBlob(reportBlob, reportFilename); return }
     if (currentYM) downloadPath(`/data/report_${currentYM.year}_${currentYM.month}.xlsx`,
                                 `report_${currentYM.year}_${currentYM.month}.xlsx`)
   }
 
-  const isLoading    = phase === 'checking' || phase === 'generating'
+  const isLoading    = phase === 'checking' || phase === 'generating' || phase === 'waking'
   const loadingLabel = phase === 'checking' ? '確認中…' : '生成中…'
 
   return (
@@ -301,6 +390,37 @@ export default function App() {
             <p className="msg msg--success">✔ 生成が完了しました</p>
           )}
         </form>
+
+        {/* 生成済みレポート一覧 */}
+        {IS_CLOUD && (
+          <div className="card reports-card">
+            <h2 className="reports-title">生成済みレポート</h2>
+            {reportsLoading && <p className="msg msg--info">読み込み中…</p>}
+            {!reportsLoading && reports.length === 0 && (
+              <p className="msg">まだ生成済みのレポートはありません</p>
+            )}
+            {!reportsLoading && reports.length > 0 && (
+              <ul className="reports-list">
+                {reports.map(r => {
+                  const key = `${r.year}-${r.month}`
+                  const isViewing = loadingReportKey === key
+                  return (
+                    <li key={key} className="report-item">
+                      <span className="report-label">{r.year}年{r.month}月</span>
+                      <button
+                        className="btn btn--small"
+                        onClick={() => handleViewReport(r)}
+                        disabled={isViewing || !!loadingReportKey}
+                      >
+                        {isViewing ? '読込中…' : '表示'}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </main>
 
       {phase === 'confirm' && currentYM && (

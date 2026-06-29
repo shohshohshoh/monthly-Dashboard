@@ -68,8 +68,10 @@ npm run dev
 
 | エンドポイント | 内容 |
 |---|---|
-| `POST /api/drive-generate` | Google Drive から Excel 取得 → 生成 → base64 返却（メイン） |
+| `POST /api/drive-generate` | Google Drive から Excel 取得 → 生成 → Drive 出力フォルダに保存 → base64 返却 |
 | `POST /api/upload-and-generate` | ブラウザから Excel アップロード → 生成 → base64 返却 |
+| `GET /api/list-reports` | Drive 出力フォルダの生成済みレポートを年月降順で一覧返却 |
+| `GET /api/get-file/{file_id}` | Drive のファイルを base64 で返す |
 | `GET /api/debug-fonts` | フォント診断（文字化け調査用） |
 
 リクエスト形式（drive-generate）:
@@ -95,7 +97,8 @@ npm run dev
 | 変数名 | 内容 |
 |---|---|
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | サービスアカウント JSON キーの内容（文字列）|
-| `GOOGLE_DRIVE_FOLDER_ID` | Excel ファイルを置く Google Drive フォルダ ID |
+| `GOOGLE_DRIVE_FOLDER_ID` | 営業日報 Excel を置く Google Drive フォルダ ID（読み取り元）|
+| `GOOGLE_DRIVE_OUTPUT_FOLDER_ID` | 生成ファイルを保存する Google Drive フォルダ ID（書き込み先）|
 
 ### GitHub リポジトリ変数（Settings → Variables → Actions）
 

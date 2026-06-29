@@ -300,3 +300,37 @@ body {
   border-radius: 6px;
   display: block;
 }
+
+/* ── 生成済みレポート一覧 ── */
+.reports-card {
+  margin-top: 16px;
+}
+
+.reports-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.reports-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.report-label {
+  font-size: 0.95rem;
+  color: var(--text);
+}

@@ -100,6 +100,7 @@ export default function App() {
 
   // 既存レポートを表示中（Drive ファイル ID を保持）
   const [viewReport, setViewReport]     = useState(null)
+  const [uploadWarning, setUploadWarning] = useState('')
 
   // アプリ起動時にレポート一覧を取得
   useEffect(() => {
@@ -142,6 +143,7 @@ export default function App() {
     }
 
     setViewReport(null)
+    setUploadWarning('')
     setPhase('generating')
     try {
       let data
@@ -169,6 +171,7 @@ export default function App() {
       setCurrentYM(ym)
       setPhase('done')
       setLightboxSrc(pngUrl)
+      if (data.upload_warning) setUploadWarning(data.upload_warning)
 
       // レポート一覧を更新
       loadReports()
@@ -388,6 +391,9 @@ export default function App() {
           )}
           {phase === 'done' && (
             <p className="msg msg--success">✔ 生成が完了しました</p>
+          )}
+          {uploadWarning && (
+            <p className="msg msg--warn">⚠ Drive への保存: {uploadWarning}</p>
           )}
         </form>
 

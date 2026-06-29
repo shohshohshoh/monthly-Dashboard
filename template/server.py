@@ -66,13 +66,14 @@ def _get_drive_service():
     return build("drive", "v3", credentials=credentials)
 
 
-def _upload_to_drive(service, y: int, m: int):
-    """生成ファイルを Drive 出力フォルダにアップロード（既存は上書き）"""
+def _upload_to_drive(service, y: int, m: int) -> str | None:
+    """生成ファイルを Drive 出力フォルダにアップロード（既存は上書き）。
+    問題があれば警告メッセージを返す。"""
     from googleapiclient.http import MediaFileUpload
 
     folder_id = os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID")
     if not folder_id:
-        return
+        return "環境変数 GOOGLE_DRIVE_OUTPUT_FOLDER_ID が Render に設定されていません"
 
     MIME = {
         ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -100,6 +101,7 @@ def _upload_to_drive(service, y: int, m: int):
                 body={"name": name, "parents": [folder_id]},
                 media_body=media,
             ).execute()
+    return None
 
 
 # ──────────────────────────────────────────────
@@ -186,13 +188,18 @@ async def drive_generate(req: Req) -> dict:
 
     _run_pipeline(y, m)
 
-    # 生成ファイルを Drive 出力フォルダに保存（失敗しても生成結果は返す）
+    # 生成ファイルを Drive 出力フォルダに保存
+    upload_warning = None
     try:
-        _upload_to_drive(service, y, m)
-    except Exception:
-        pass
+        upload_warning = _upload_to_drive(service, y, m)
+    except Exception as e:
+        upload_warning = f"Drive への保存に失敗しました: {e}"
+        print(f"[upload error] {e}", flush=True)
 
-    return _base64_result(y, m)
+    result = _base64_result(y, m)
+    if upload_warning:
+        result["upload_warning"] = upload_warning
+    return result
 
 
 @app.get("/api/list-reports")

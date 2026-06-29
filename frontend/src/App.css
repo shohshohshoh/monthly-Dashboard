@@ -157,6 +157,7 @@ body {
 .msg--error   { color: var(--c5);  background: rgba(217,48,37,0.07);  border-left: 3px solid var(--c5); }
 .msg--info    { color: var(--sub); background: #f1f3f4;               border-left: 3px solid var(--grid); }
 .msg--success { color: var(--c3);  background: rgba(24,128,56,0.08);  border-left: 3px solid var(--c3); }
+.msg--warn    { color: var(--c4);  background: rgba(227,116,0,0.07);  border-left: 3px solid var(--c4); }
 
 .msg code {
   font-family: monospace;

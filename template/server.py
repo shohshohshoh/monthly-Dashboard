@@ -71,7 +71,7 @@ def _upload_to_drive(service, y: int, m: int) -> str | None:
     問題があれば警告メッセージを返す。"""
     from googleapiclient.http import MediaFileUpload
 
-    folder_id = os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID")
+    folder_id = (os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID") or "").strip()
     if not folder_id:
         return "環境変数 GOOGLE_DRIVE_OUTPUT_FOLDER_ID が Render に設定されていません"
 
@@ -163,7 +163,7 @@ async def drive_generate(req: Req) -> dict:
     """Google Drive からソース Excel を取得して生成し、出力を Drive に保存する"""
     service = _get_drive_service()
 
-    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
+    folder_id = (os.environ.get("GOOGLE_DRIVE_FOLDER_ID") or "").strip()
     if not folder_id:
         raise HTTPException(500, detail="環境変数 GOOGLE_DRIVE_FOLDER_ID が設定されていません")
 
@@ -205,7 +205,7 @@ async def drive_generate(req: Req) -> dict:
 @app.get("/api/list-reports")
 async def list_reports():
     """Drive 出力フォルダの生成済みレポートを年月降順で返す"""
-    folder_id = os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID")
+    folder_id = (os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID") or "").strip()
     if not folder_id:
         return {"reports": []}
 
@@ -283,7 +283,7 @@ async def debug_drive():
         result["auth"] = f"ERROR: {e}"
         return result
 
-    out_id = os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID")
+    out_id = (os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID") or "").strip()
     if out_id:
         try:
             files = service.files().list(

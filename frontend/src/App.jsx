@@ -53,7 +53,7 @@ function Modal({ title, message, onConfirm, onCancel, confirmLabel = 'はい', c
   )
 }
 
-function Lightbox({ src, label, onClose, onDownloadPptx, onDownloadDaily, onDownloadReport }) {
+function Lightbox({ src, label, onClose, onDownloadPptx, onDownloadDaily, onDownloadReport, showExcel = true }) {
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -66,8 +66,8 @@ function Lightbox({ src, label, onClose, onDownloadPptx, onDownloadDaily, onDown
         <div className="lightbox-bar">
           <span className="lightbox-label">{label}</span>
           <div className="lightbox-actions">
-            <button className="btn btn--small" onClick={onDownloadDaily}>日次 Excel</button>
-            <button className="btn btn--small" onClick={onDownloadReport}>レポート Excel</button>
+            {showExcel && <button className="btn btn--small" onClick={onDownloadDaily}>日次 Excel</button>}
+            {showExcel && <button className="btn btn--small" onClick={onDownloadReport}>レポート Excel</button>}
             <button className="btn btn--small" onClick={onDownloadPptx}>PowerPoint</button>
             <button className="lightbox-close" onClick={onClose} title="閉じる（Esc）">✕</button>
           </div>
@@ -100,7 +100,6 @@ export default function App() {
 
   // 既存レポートを表示中（Drive ファイル ID を保持）
   const [viewReport, setViewReport]     = useState(null)
-  const [uploadWarning, setUploadWarning] = useState('')
 
   // アプリ起動時にレポート一覧を取得
   useEffect(() => {
@@ -143,7 +142,6 @@ export default function App() {
     }
 
     setViewReport(null)
-    setUploadWarning('')
     setPhase('generating')
     try {
       let data
@@ -171,7 +169,6 @@ export default function App() {
       setCurrentYM(ym)
       setPhase('done')
       setLightboxSrc(pngUrl)
-      if (data.upload_warning) setUploadWarning(data.upload_warning)
 
       // レポート一覧を更新
       loadReports()
@@ -271,16 +268,16 @@ export default function App() {
     setCurrentYM(null)
   }
 
-  // Drive から既存レポートを表示
+  // Drive の PPTX から画像を抽出して表示
   async function handleViewReport(report) {
-    if (!report.png_id) return
+    if (!report.pptx_id) return
     const key = `${report.year}-${report.month}`
     setLoadingReportKey(key)
     try {
-      const res = await fetch(`${API}/api/get-file/${report.png_id}`)
+      const res = await fetch(`${API}/api/get-pptx-image/${report.pptx_id}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '取得に失敗しました')
-      const pngUrl = URL.createObjectURL(b64toBlob(data.base64, 'image/png'))
+      const pngUrl = URL.createObjectURL(b64toBlob(data.png_base64, 'image/png'))
       setViewReport(report)
       setCurrentYM({ year: report.year, month: report.month })
       setLightboxSrc(pngUrl)
@@ -310,7 +307,8 @@ export default function App() {
 
   function handleDownloadPptx() {
     if (viewReport?.pptx_id) {
-      downloadDriveFile(viewReport.pptx_id, `dashboard_${viewReport.year}_${viewReport.month}.pptx`)
+      downloadDriveFile(viewReport.pptx_id,
+        `dashboard_${viewReport.year}_${viewReport.month}.pptx`)
       return
     }
     if (IS_CLOUD && pptxBlob) { downloadBlob(pptxBlob, pptxFilename); return }
@@ -392,9 +390,6 @@ export default function App() {
           {phase === 'done' && (
             <p className="msg msg--success">✔ 生成が完了しました</p>
           )}
-          {uploadWarning && (
-            <p className="msg msg--warn">⚠ Drive への保存: {uploadWarning}</p>
-          )}
         </form>
 
         {/* 生成済みレポート一覧 */}
@@ -449,6 +444,7 @@ export default function App() {
           onDownloadPptx={handleDownloadPptx}
           onDownloadDaily={handleDownloadDaily}
           onDownloadReport={handleDownloadReport}
+          showExcel={!viewReport}
         />
       )}
     </div>

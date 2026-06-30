@@ -48,7 +48,7 @@ class Req(BaseModel):
 # ──────────────────────────────────────────────
 
 def _get_drive_service():
-    """Google Drive API サービスを返す（drive スコープ: 読み書き）"""
+    """Google Drive API サービスを返す"""
     try:
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
@@ -61,47 +61,21 @@ def _get_drive_service():
 
     credentials = service_account.Credentials.from_service_account_info(
         json.loads(creds_json),
-        scopes=["https://www.googleapis.com/auth/drive"],
+        scopes=["https://www.googleapis.com/auth/drive.readonly"],
     )
     return build("drive", "v3", credentials=credentials)
 
 
-def _upload_to_drive(service, y: int, m: int) -> str | None:
-    """生成ファイルを Drive 出力フォルダにアップロード（既存は上書き）。
-    問題があれば警告メッセージを返す。"""
-    from googleapiclient.http import MediaFileUpload
-
-    folder_id = (os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID") or "").strip()
-    if not folder_id:
-        return "環境変数 GOOGLE_DRIVE_OUTPUT_FOLDER_ID が Render に設定されていません"
-
-    MIME = {
-        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        ".png":  "image/png",
-    }
-    targets = [
-        DATA / f"daily_{y}_{m}.xlsx",
-        DATA / f"report_{y}_{m}.xlsx",
-        DATA / f"dashboard_{y}_{m}.pptx",
-        DATA / f"dashboard_{y}_{m}.png",
-    ]
-    for path in targets:
-        if not path.exists():
-            continue
-        name = path.name
-        mime = MIME.get(path.suffix, "application/octet-stream")
-        q = f"name='{name}' and '{folder_id}' in parents and trashed=false"
-        existing = service.files().list(q=q, fields="files(id)").execute().get("files", [])
-        media = MediaFileUpload(str(path), mimetype=mime)
-        if existing:
-            service.files().update(fileId=existing[0]["id"], media_body=media).execute()
-        else:
-            service.files().create(
-                body={"name": name, "parents": [folder_id]},
-                media_body=media,
-            ).execute()
-    return None
+def _download_drive_file(service, file_id: str) -> bytes:
+    """Drive からファイルをダウンロードして bytes で返す"""
+    from googleapiclient.http import MediaIoBaseDownload
+    request = service.files().get_media(fileId=file_id)
+    buf = io.BytesIO()
+    downloader = MediaIoBaseDownload(buf, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+    return buf.getvalue()
 
 
 # ──────────────────────────────────────────────
@@ -160,7 +134,7 @@ async def upload_and_generate(
 
 @app.post("/api/drive-generate")
 async def drive_generate(req: Req) -> dict:
-    """Google Drive からソース Excel を取得して生成し、出力を Drive に保存する"""
+    """Google Drive からソース Excel を取得して生成する"""
     service = _get_drive_service()
 
     folder_id = (os.environ.get("GOOGLE_DRIVE_FOLDER_ID") or "").strip()
@@ -175,36 +149,17 @@ async def drive_generate(req: Req) -> dict:
     if not files:
         raise HTTPException(404, detail=f"{filename} が Google Drive フォルダに見つかりません")
 
-    from googleapiclient.http import MediaIoBaseDownload
     SRC_DIR.mkdir(exist_ok=True)
     DATA.mkdir(parents=True, exist_ok=True)
-    request = service.files().get_media(fileId=files[0]["id"])
-    buf = io.BytesIO()
-    downloader = MediaIoBaseDownload(buf, request)
-    done = False
-    while not done:
-        _, done = downloader.next_chunk()
-    (SRC_DIR / filename).write_bytes(buf.getvalue())
+    (SRC_DIR / filename).write_bytes(_download_drive_file(service, files[0]["id"]))
 
     _run_pipeline(y, m)
-
-    # 生成ファイルを Drive 出力フォルダに保存
-    upload_warning = None
-    try:
-        upload_warning = _upload_to_drive(service, y, m)
-    except Exception as e:
-        upload_warning = f"Drive への保存に失敗しました: {e}"
-        print(f"[upload error] {e}", flush=True)
-
-    result = _base64_result(y, m)
-    if upload_warning:
-        result["upload_warning"] = upload_warning
-    return result
+    return _base64_result(y, m)
 
 
 @app.get("/api/list-reports")
 async def list_reports():
-    """Drive 出力フォルダの生成済みレポートを年月降順で返す"""
+    """Drive 出力フォルダの PPTX ファイルを年月降順で返す"""
     folder_id = (os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID") or "").strip()
     if not folder_id:
         return {"reports": []}
@@ -215,54 +170,51 @@ async def list_reports():
         return {"reports": []}
 
     results = service.files().list(
-        q=f"'{folder_id}' in parents and trashed=false",
+        q=f"'{folder_id}' in parents and trashed=false and mimeType='application/vnd.openxmlformats-officedocument.presentationml.presentation'",
         fields="files(id,name)",
         pageSize=200,
     ).execute()
 
-    groups: dict = defaultdict(dict)
+    reports = []
     for f in results.get("files", []):
         name, fid = f["name"], f["id"]
-        try:
-            if   name.startswith("dashboard_") and name.endswith(".png"):
-                y, m = name[len("dashboard_"):-len(".png")].split("_")
-                groups[(int(y), int(m))]["png_id"] = fid
-            elif name.startswith("dashboard_") and name.endswith(".pptx"):
+        # dashboard_YYYY_M.pptx
+        if name.startswith("dashboard_") and name.endswith(".pptx"):
+            try:
                 y, m = name[len("dashboard_"):-len(".pptx")].split("_")
-                groups[(int(y), int(m))]["pptx_id"] = fid
-            elif name.startswith("daily_") and name.endswith(".xlsx"):
-                y, m = name[len("daily_"):-len(".xlsx")].split("_")
-                groups[(int(y), int(m))]["daily_id"] = fid
-            elif name.startswith("report_") and name.endswith(".xlsx"):
-                y, m = name[len("report_"):-len(".xlsx")].split("_")
-                groups[(int(y), int(m))]["report_id"] = fid
-        except Exception:
-            pass
+                reports.append({"year": int(y), "month": int(m), "pptx_id": fid})
+            except Exception:
+                pass
 
-    reports = [
-        {"year": y, "month": m, **ids}
-        for (y, m), ids in sorted(groups.items(), reverse=True)
-    ]
+    reports.sort(key=lambda r: (r["year"], r["month"]), reverse=True)
     return {"reports": reports}
+
+
+@app.get("/api/get-pptx-image/{file_id}")
+async def get_pptx_image(file_id: str):
+    """Drive の PPTX から最初のスライドの画像を取り出して base64 PNG で返す"""
+    from pptx import Presentation
+
+    service = _get_drive_service()
+    pptx_bytes = _download_drive_file(service, file_id)
+
+    prs = Presentation(io.BytesIO(pptx_bytes))
+    slide = prs.slides[0]
+    for shape in slide.shapes:
+        if hasattr(shape, "image"):
+            return {"png_base64": base64.b64encode(shape.image.blob).decode()}
+
+    raise HTTPException(500, detail="PPTX にスライド画像が見つかりませんでした")
 
 
 @app.get("/api/get-file/{file_id}")
 async def get_file(file_id: str):
     """Drive のファイルを base64 で返す"""
-    from googleapiclient.http import MediaIoBaseDownload
-
     service = _get_drive_service()
     meta = service.files().get(fileId=file_id, fields="mimeType,name").execute()
-
-    request = service.files().get_media(fileId=file_id)
-    buf = io.BytesIO()
-    downloader = MediaIoBaseDownload(buf, request)
-    done = False
-    while not done:
-        _, done = downloader.next_chunk()
-
+    data = _download_drive_file(service, file_id)
     return {
-        "base64": base64.b64encode(buf.getvalue()).decode(),
+        "base64": base64.b64encode(data).decode(),
         "mime":   meta["mimeType"],
         "name":   meta["name"],
     }

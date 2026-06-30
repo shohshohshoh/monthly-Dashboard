@@ -53,7 +53,7 @@ function Modal({ title, message, onConfirm, onCancel, confirmLabel = 'はい', c
   )
 }
 
-function Lightbox({ src, label, onClose, onDownloadPptx, onDownloadDaily, onDownloadReport, showExcel = true }) {
+function Lightbox({ src, label, onClose, onDownloadPptx, onDownloadDaily, showExcel = true }) {
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -67,7 +67,6 @@ function Lightbox({ src, label, onClose, onDownloadPptx, onDownloadDaily, onDown
           <span className="lightbox-label">{label}</span>
           <div className="lightbox-actions">
             {showExcel && <button className="btn btn--small" onClick={onDownloadDaily}>日次 Excel</button>}
-            {showExcel && <button className="btn btn--small" onClick={onDownloadReport}>レポート Excel</button>}
             <button className="btn btn--small" onClick={onDownloadPptx}>PowerPoint</button>
             <button className="lightbox-close" onClick={onClose} title="閉じる（Esc）">✕</button>
           </div>
@@ -90,9 +89,6 @@ export default function App() {
   const [pptxFilename, setPptxFilename] = useState(null)
   const [dailyBlob, setDailyBlob]       = useState(null)
   const [dailyFilename, setDailyFilename] = useState(null)
-  const [reportBlob, setReportBlob]     = useState(null)
-  const [reportFilename, setReportFilename] = useState(null)
-
   // 生成済みレポート一覧（Drive）
   const [reports, setReports]           = useState([])
   const [reportsLoading, setReportsLoading] = useState(false)
@@ -162,9 +158,6 @@ export default function App() {
       setPptxFilename(data.pptx_filename)
       setDailyBlob(b64toBlob(data.daily_base64, XLSX))
       setDailyFilename(data.daily_filename)
-      setReportBlob(b64toBlob(data.report_base64, XLSX))
-      setReportFilename(data.report_filename)
-
       const pngUrl = URL.createObjectURL(b64toBlob(data.png_base64, 'image/png'))
       setCurrentYM(ym)
       setPhase('done')
@@ -326,16 +319,6 @@ export default function App() {
                                 `daily_${currentYM.year}_${currentYM.month}.xlsx`)
   }
 
-  function handleDownloadReport() {
-    if (viewReport?.report_id) {
-      downloadDriveFile(viewReport.report_id, `report_${viewReport.year}_${viewReport.month}.xlsx`)
-      return
-    }
-    if (IS_CLOUD && reportBlob) { downloadBlob(reportBlob, reportFilename); return }
-    if (currentYM) downloadPath(`/data/report_${currentYM.year}_${currentYM.month}.xlsx`,
-                                `report_${currentYM.year}_${currentYM.month}.xlsx`)
-  }
-
   const isLoading    = phase === 'checking' || phase === 'generating' || phase === 'waking'
   const loadingLabel = phase === 'checking' ? '確認中…' : '生成中…'
 
@@ -443,7 +426,6 @@ export default function App() {
           onClose={handleCloseLightbox}
           onDownloadPptx={handleDownloadPptx}
           onDownloadDaily={handleDownloadDaily}
-          onDownloadReport={handleDownloadReport}
           showExcel={!viewReport}
         />
       )}

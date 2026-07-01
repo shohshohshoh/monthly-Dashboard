@@ -338,3 +338,8 @@ body {
   font-size: 0.95rem;
   color: var(--text);
 }
+
+.report-item-pad {
+  background: none;
+  border: none;
+}

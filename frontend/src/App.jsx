@@ -386,26 +386,36 @@ export default function App() {
             {!reportsLoading && reports.length === 0 && (
               <p className="msg">まだ生成済みのレポートはありません</p>
             )}
-            {!reportsLoading && reports.length > 0 && (
-              <ul className="reports-list">
-                {reports.map(r => {
-                  const key = `${r.year}-${r.month}`
-                  const isViewing = loadingReportKey === key
-                  return (
-                    <li key={key} className="report-item">
-                      <span className="report-label">{r.year}年{r.month}月</span>
-                      <button
-                        className="btn btn--small"
-                        onClick={() => handleViewReport(r)}
-                        disabled={isViewing || !!loadingReportKey}
-                      >
-                        {isViewing ? '読込中…' : '表示'}
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
+            {!reportsLoading && reports.length > 0 && (() => {
+              const COLS = 3
+              const sorted = [...reports].sort((a, b) =>
+                b.year !== a.year ? b.year - a.year : b.month - a.month)
+              const numRows = Math.ceil(sorted.length / COLS)
+              const cells = Array.from({ length: numRows * COLS }, (_, i) =>
+                sorted[(i % COLS) * numRows + Math.floor(i / COLS)] ?? null
+              )
+              return (
+                <ul className="reports-list">
+                  {cells.map((r, i) => {
+                    if (!r) return <li key={`pad-${i}`} className="report-item-pad" />
+                    const key = `${r.year}-${r.month}`
+                    const isViewing = loadingReportKey === key
+                    return (
+                      <li key={key} className="report-item">
+                        <span className="report-label">{r.year}年{r.month}月</span>
+                        <button
+                          className="btn btn--small"
+                          onClick={() => handleViewReport(r)}
+                          disabled={isViewing || !!loadingReportKey}
+                        >
+                          {isViewing ? '読込中…' : '表示'}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )
+            })()}
           </div>
         )}
       </main>

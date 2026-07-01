@@ -108,7 +108,10 @@ export default function App() {
     try {
       const res = await fetch(`${API}/api/list-reports`)
       const data = await res.json()
-      setReports(data.reports || [])
+      const sorted = (data.reports || []).sort((a, b) =>
+        b.year !== a.year ? b.year - a.year : b.month - a.month
+      )
+      setReports(sorted)
     } catch {
       // 取得失敗は無視
     } finally {

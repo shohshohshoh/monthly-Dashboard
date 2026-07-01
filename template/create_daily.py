@@ -25,6 +25,7 @@ R_TEIKYU    = 2   # 定休（日曜=✗）
 R_KYUJITSU  = 3   # 祝日FLG
 R_YOUBI     = 4   # 曜日
 R_JUN       = 5   # 純売上高
+R_ZEIZEI    = 6   # 消費税
 R_CASH      = 7   # 現金
 R_TOTAL     = 10  # 総売上高
 R_JCB       = 15  # JCB金額
@@ -76,8 +77,9 @@ def create_daily(year: int, month: int) -> Path:
             date_cols.append((col, val))
 
     # ── 日次データ ──
-    KEYS = ["日付", "date", "定休", "祝日",
-            "純売上高", "現金", "JCB", "千葉銀行",
+    KEYS = ["日付", "曜日", "定休", "祝日",
+            "純売上高", "消費税",
+            "現金", "JCB", "千葉銀行",
             "アクアコイン", "PayPay", "ふるさと納税", "売掛金",
             "FOOD", "DRINK", "売店", "その他",
             "昼食客数", "夕食客数", "昼食売上", "夕食売上"]
@@ -92,11 +94,12 @@ def create_daily(year: int, month: int) -> Path:
             teikyu = "休"
 
         row = {
-            "日付":         dt.strftime("%Y/%m/%d"),
-            "date":         dt,
+            "日付":         dt,
+            "曜日":         ws_data.cell(R_YOUBI,    col).value or "",
             "定休":         teikyu,
             "祝日":         kyujitsu,
             "純売上高":     _int(ws_data.cell(R_JUN,      col).value),
+            "消費税":       _int(ws_data.cell(R_ZEIZEI,   col).value),
             "現金":         _int(ws_data.cell(R_CASH,     col).value),
             "JCB":          _int(ws_data.cell(R_JCB,      col).value),
             "千葉銀行":     _int(ws_data.cell(R_CHIBA,    col).value),
@@ -156,7 +159,7 @@ def create_daily(year: int, month: int) -> Path:
     for ri, row in enumerate(daily_rows, 2):
         for ci, key in enumerate(KEYS, 1):
             cell = ws1.cell(ri, ci, row[key])
-            if key == "date":
+            if key == "日付":
                 cell.number_format = "yyyy/mm/dd"
 
     last_col1 = get_column_letter(len(KEYS))

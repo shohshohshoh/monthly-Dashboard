@@ -109,10 +109,10 @@ def load_data(year, month):
         raise FileNotFoundError(f"データファイルが見つかりません: {path}")
     wb  = openpyxl.load_workbook(path)
     ws1 = wb.active
-    # 新フォーマット: ヘッダー行1、データ行2〜
+    # フォーマット: ヘッダー行1、データ行2〜
     keys = [
-        "日付", "date", "定休", "祝日",
-        "純売上高",
+        "日付", "曜日", "定休", "祝日",
+        "純売上高", "消費税",
         "現金", "JCB", "千葉銀行", "アクアコイン", "PayPay", "ふるさと納税", "売掛金",
         "FOOD", "DRINK", "売店", "その他",
         "昼食客数", "夕食客数", "昼食売上", "夕食売上",
@@ -125,20 +125,17 @@ def load_data(year, month):
         row = dict(zip(keys, v))
         for k in keys[4:]:  # 純売上高 以降を数値化
             row[k] = int(row[k] or 0)
-        # date セルから日・曜日を導出
-        dt = row["date"]
+        # 日付から日を導出
+        dt = row["日付"]
         if hasattr(dt, "day"):
-            row["日"]   = dt.day
-            row["曜日"] = _WEEKDAY_JP[dt.weekday()]
+            row["日"] = dt.day
         else:
             from datetime import datetime as _dt
             try:
                 d = _dt.strptime(str(row["日付"]), "%Y/%m/%d")
-                row["日"]   = d.day
-                row["曜日"] = _WEEKDAY_JP[d.weekday()]
+                row["日"] = d.day
             except Exception:
-                row["日"]   = 0
-                row["曜日"] = ""
+                row["日"] = 0
         row["総売上高"] = row["純売上高"]  # 旧キーとの互換
         daily.append(row)
 

@@ -15,6 +15,10 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+import openpyxl
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -213,6 +217,86 @@ async def get_file(file_id: str):
         "base64": base64.b64encode(data).decode(),
         "mime":   meta["mimeType"],
         "name":   meta["name"],
+    }
+
+
+@app.get("/api/combine-daily")
+async def combine_daily():
+    """Drive 出力フォルダの daily_*.xlsx を全て読み込み、日次データシートを縦結合して返す"""
+    folder_id = (os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID") or "").strip()
+    if not folder_id:
+        raise HTTPException(500, detail="GOOGLE_DRIVE_OUTPUT_FOLDER_ID が設定されていません")
+
+    service = _get_drive_service()
+
+    results = service.files().list(
+        q=f"'{folder_id}' in parents and trashed=false and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'",
+        fields="files(id,name)",
+        pageSize=200,
+    ).execute()
+
+    def _parse_ym(name: str):
+        try:
+            parts = name[len("daily_"):-len(".xlsx")].split("_")
+            return (int(parts[0]), int(parts[1]))
+        except Exception:
+            return (0, 0)
+
+    files = [f for f in results.get("files", [])
+             if f["name"].startswith("daily_") and f["name"].endswith(".xlsx")]
+    if not files:
+        raise HTTPException(404, detail="daily_*.xlsx ファイルが見つかりません")
+
+    files.sort(key=lambda f: _parse_ym(f["name"]))
+
+    _TABLE_STYLE = TableStyleInfo(
+        name="TableStyleMedium9",
+        showFirstColumn=False, showLastColumn=False,
+        showRowStripes=True, showColumnStripes=False,
+    )
+
+    all_rows = []
+    headers = None
+
+    for f in files:
+        xlsx_bytes = _download_drive_file(service, f["id"])
+        wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+        ws = next((wb[s] for s in wb.sheetnames if "日次データ" in s), wb.active)
+
+        row_headers = [ws.cell(1, c).value for c in range(1, ws.max_column + 1)]
+        if headers is None:
+            headers = row_headers
+
+        for r in range(2, ws.max_row + 1):
+            vals = [ws.cell(r, c).value for c in range(1, len(headers) + 1)]
+            if vals[0] is None:
+                continue
+            all_rows.append(vals)
+
+    wb_out = openpyxl.Workbook()
+    ws_out = wb_out.active
+    ws_out.title = "日次データ（全月）"
+
+    for ci, h in enumerate(headers or [], 1):
+        ws_out.cell(1, ci, h)
+    for ri, row in enumerate(all_rows, 2):
+        for ci, val in enumerate(row, 1):
+            cell = ws_out.cell(ri, ci, val)
+            if ci == 1 and hasattr(val, "strftime"):
+                cell.number_format = "yyyy/mm/dd"
+
+    last_col = get_column_letter(len(headers) if headers else 1)
+    last_row = max(1 + len(all_rows), 2)
+    tbl = Table(displayName="CombinedDaily", ref=f"A1:{last_col}{last_row}")
+    tbl.tableStyleInfo = _TABLE_STYLE
+    ws_out.add_table(tbl)
+
+    buf = io.BytesIO()
+    wb_out.save(buf)
+    return {
+        "base64":   base64.b64encode(buf.getvalue()).decode(),
+        "filename": "combined_daily.xlsx",
+        "count":    len(all_rows),
     }
 
 

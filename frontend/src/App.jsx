@@ -96,6 +96,7 @@ export default function App() {
 
   // 既存レポートを表示中（Drive ファイル ID を保持）
   const [viewReport, setViewReport]     = useState(null)
+  const [combining, setCombining]       = useState(false)
 
   // アプリ起動時にレポート一覧を取得
   useEffect(() => {
@@ -295,6 +296,22 @@ export default function App() {
     }
   }
 
+  async function handleCombineDaily() {
+    const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    setCombining(true)
+    setError('')
+    try {
+      const res = await fetch(`${API}/api/combine-daily`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '結合に失敗しました')
+      downloadBlob(b64toBlob(data.base64, XLSX), data.filename)
+    } catch (err) {
+      setError(err.message || '結合に失敗しました')
+    } finally {
+      setCombining(false)
+    }
+  }
+
   function handleCloseLightbox() {
     if (lightboxSrc && lightboxSrc.startsWith('blob:')) URL.revokeObjectURL(lightboxSrc)
     setLightboxSrc(null)
@@ -381,7 +398,16 @@ export default function App() {
         {/* 生成済みレポート一覧 */}
         {IS_CLOUD && (
           <div className="card reports-card">
-            <h2 className="reports-title">生成済みレポート</h2>
+            <div className="reports-header">
+              <h2 className="reports-title">生成済みレポート</h2>
+              <button
+                className="btn btn--small"
+                onClick={handleCombineDaily}
+                disabled={combining || reportsLoading}
+              >
+                {combining ? '結合中…' : '日次データ統合'}
+              </button>
+            </div>
             {reportsLoading && <p className="msg msg--info">読み込み中…</p>}
             {!reportsLoading && reports.length === 0 && (
               <p className="msg">まだ生成済みのレポートはありません</p>

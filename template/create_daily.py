@@ -78,7 +78,7 @@ def create_daily(year: int, month: int) -> Path:
 
     # ── 日次データ ──
     KEYS = ["日付", "曜日", "定休", "祝日",
-            "純売上高", "消費税",
+            "純売上高", "消費税", "総売上高",
             "現金", "JCB", "千葉銀行",
             "アクアコイン", "PayPay", "ふるさと納税", "売掛金",
             "FOOD", "DRINK", "売店", "その他",
@@ -100,6 +100,7 @@ def create_daily(year: int, month: int) -> Path:
             "祝日":         kyujitsu,
             "純売上高":     _int(ws_data.cell(R_JUN,      col).value),
             "消費税":       _int(ws_data.cell(R_ZEIZEI,   col).value),
+            "総売上高":     _int(ws_data.cell(R_TOTAL,    col).value),
             "現金":         _int(ws_data.cell(R_CASH,     col).value),
             "JCB":          _int(ws_data.cell(R_JCB,      col).value),
             "千葉銀行":     _int(ws_data.cell(R_CHIBA,    col).value),

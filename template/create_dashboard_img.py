@@ -552,23 +552,27 @@ def build_dashboard(year, month, daily, shohin):
 # ══════════════════════════════════════════════════════════════
 # メイン
 # ══════════════════════════════════════════════════════════════
+def create_dashboard(year: int, month: int) -> Path:
+    """daily_{year}_{month}.xlsx → dashboard_{year}_{month}.png を生成し、パスを返す（他モジュールから直接呼び出し可）"""
+    out = OUT_DIR / f"dashboard_{year}_{month}.png"
+    daily, shohin = load_data(year, month)
+
+    fig = build_dashboard(year, month, daily, shohin)
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, dpi=150, bbox_inches="tight", facecolor=C["bg"])
+    plt.close(fig)
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser(description="日次データ → 1枚ダッシュボード PNG")
     parser.add_argument("year",  type=int)
     parser.add_argument("month", type=int)
     args = parser.parse_args()
 
-    out = OUT_DIR / f"dashboard_{args.year}_{args.month}.png"
     print(f"データ読み込み中: daily_{args.year}_{args.month}.xlsx")
-    daily, shohin = load_data(args.year, args.month)
-    print(f"  日次: {len(daily)}日  商品別: {len(shohin)}行")
-
-    print("ダッシュボード生成中...")
-    fig = build_dashboard(args.year, args.month, daily, shohin)
-
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, dpi=150, bbox_inches="tight", facecolor=C["bg"])
-    plt.close(fig)
+    out = create_dashboard(args.year, args.month)
     print(f"\n出力完了: {out}")
 
 

@@ -85,7 +85,7 @@ npm run dev
 
 | エンドポイント | 内容 |
 |---|---|
-| `POST /api/drive-generate` | Google Drive から Excel 取得 → 生成（daily・PNG・PPTX）→ base64 返却 |
+| `POST /api/drive-generate` | Google Drive から Excel 取得 → 生成（daily・PNG・PPTX）→ base64 返却＋`GOOGLE_DRIVE_UPLOAD_FOLDER_ID`へ自動アップロード |
 | `GET /api/list-reports` | Drive の PPTX フォルダを読み取り、年月降順で一覧返却 |
 | `GET /api/get-pptx-image/{file_id}` | Drive の PPTX から最初のスライド画像を PNG base64 で返却 |
 | `GET /api/get-file/{file_id}` | Drive のファイルを base64 で返す |
@@ -103,9 +103,12 @@ npm run dev
   "success": true,
   "png_base64": "...",
   "pptx_base64": "...", "pptx_filename": "dashboard_2026_5.pptx",
-  "daily_base64": "...", "daily_filename": "daily_2026_5.xlsx"
+  "daily_base64": "...", "daily_filename": "daily_2026_5.xlsx",
+  "drive_upload": { "uploaded": true }
 }
 ```
+
+生成のたびに pptx・daily xlsx を `GOOGLE_DRIVE_UPLOAD_FOLDER_ID` フォルダへ自動アップロードする（同名ファイルがあれば上書き）。`drive_upload.uploaded` が `false` の場合は `reason` に失敗理由が入るが、アップロード失敗はレスポンス自体を失敗させない（ダウンロード提供は継続）。
 
 ## 環境変数
 
@@ -115,10 +118,12 @@ npm run dev
 |---|---|
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | サービスアカウント JSON キーの内容（文字列）|
 | `GOOGLE_DRIVE_FOLDER_ID` | 営業日報 Excel を置く Google Drive フォルダ ID（読み取り元）|
-| `GOOGLE_DRIVE_OUTPUT_FOLDER_ID` | 既存 PPTX 一覧を読み取る Google Drive フォルダ ID |
+| `GOOGLE_DRIVE_OUTPUT_FOLDER_ID` | 既存 PPTX 一覧を読み取る Google Drive フォルダ ID（手動配置分の参照用）|
+| `GOOGLE_DRIVE_UPLOAD_FOLDER_ID` | 生成した pptx・daily xlsx を自動アップロードする Google Drive フォルダ ID |
 
-> **注意**: Google Drive への書き込みは行わない（サービスアカウントのスコープは `drive.readonly`）。  
-> `GOOGLE_DRIVE_OUTPUT_FOLDER_ID` には、手動で配置した `dashboard_YYYY_M.pptx` を読み取り専用で参照する。
+> **注意**: 生成物の自動保存のため、サービスアカウントのスコープは `drive`（読み書き）を使用する。  
+> `GOOGLE_DRIVE_UPLOAD_FOLDER_ID` で指定するフォルダは、サービスアカウントのメールアドレス（`client_email`）に **編集者** 権限で共有しておくこと（閲覧者権限のみだとアップロードに失敗する）。  
+> `GOOGLE_DRIVE_OUTPUT_FOLDER_ID` は引き続き読み取り専用の一覧表示用（`GOOGLE_DRIVE_UPLOAD_FOLDER_ID` と同一フォルダに設定してもよい）。
 
 ### GitHub リポジトリ変数（Settings → Variables → Actions）
 

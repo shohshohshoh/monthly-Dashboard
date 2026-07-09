@@ -6,11 +6,11 @@
   cd template
   uvicorn server:app --port 8000 --reload
 """
+import asyncio
 import base64
 import io
 import json
 import os
-import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -22,6 +22,13 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# パイプライン用スクリプトをモジュールとしてインポート（プロセス起動せず直接呼び出す）
+# ※ 重いライブラリ（matplotlib/numpy等）はサーバー起動時に一度だけ読み込まれる
+sys.path.insert(0, str(Path(__file__).parent))
+import create_daily
+import create_dashboard_img
+import create_pptx
 
 app = FastAPI()
 app.add_middleware(
@@ -39,7 +46,6 @@ ROOT    = Path(__file__).parent.parent
 DATA    = ROOT / "frontend" / "public" / "data"
 SRC_DIR = ROOT / "data"
 SCRIPTS = Path(__file__).parent
-PY      = sys.executable
 
 
 class Req(BaseModel):
@@ -51,8 +57,15 @@ class Req(BaseModel):
 # Google Drive ヘルパー
 # ──────────────────────────────────────────────
 
+_drive_service_cache = None
+
+
 def _get_drive_service():
-    """Google Drive API サービスを返す"""
+    """Google Drive API サービスを返す（初回のみ構築し、以降はキャッシュを再利用）"""
+    global _drive_service_cache
+    if _drive_service_cache is not None:
+        return _drive_service_cache
+
     try:
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
@@ -65,9 +78,11 @@ def _get_drive_service():
 
     credentials = service_account.Credentials.from_service_account_info(
         json.loads(creds_json),
-        scopes=["https://www.googleapis.com/auth/drive.readonly"],
+        # 生成物（PPTX/XLSX）を指定フォルダへ自動アップロードするため書き込み権限が必要
+        scopes=["https://www.googleapis.com/auth/drive"],
     )
-    return build("drive", "v3", credentials=credentials)
+    _drive_service_cache = build("drive", "v3", credentials=credentials)
+    return _drive_service_cache
 
 
 def _download_drive_file(service, file_id: str) -> bytes:
@@ -82,22 +97,73 @@ def _download_drive_file(service, file_id: str) -> bytes:
     return buf.getvalue()
 
 
+def _upload_or_replace_file(service, local_path: Path, folder_id: str, mime_type: str) -> str:
+    """local_path のファイルを Drive の folder_id 直下へアップロード。
+    同名ファイルが既に存在する場合は内容を上書き（再生成のたびに重複が増えないように）。"""
+    from googleapiclient.http import MediaFileUpload
+
+    existing = service.files().list(
+        q=f"name='{local_path.name}' and '{folder_id}' in parents and trashed=false",
+        fields="files(id)",
+    ).execute().get("files", [])
+
+    media = MediaFileUpload(str(local_path), mimetype=mime_type, resumable=False)
+
+    if existing:
+        file_id = existing[0]["id"]
+        service.files().update(fileId=file_id, media_body=media).execute()
+        return file_id
+
+    created = service.files().create(
+        body={"name": local_path.name, "parents": [folder_id]},
+        media_body=media,
+        fields="id",
+    ).execute()
+    return created["id"]
+
+
+_PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _sync_outputs_to_drive(y: int, m: int) -> dict:
+    """生成済みの pptx・daily xlsx を GOOGLE_DRIVE_UPLOAD_FOLDER_ID へ自動保存する。
+    失敗してもメイン処理（生成・ダウンロード提供）は継続させるため例外は投げず結果を dict で返す。"""
+    folder_id = (os.environ.get("GOOGLE_DRIVE_UPLOAD_FOLDER_ID") or "").strip()
+    if not folder_id:
+        return {"uploaded": False, "reason": "GOOGLE_DRIVE_UPLOAD_FOLDER_ID が未設定です"}
+
+    try:
+        service = _get_drive_service()
+        pptx_path  = DATA / f"dashboard_{y}_{m}.pptx"
+        daily_path = DATA / f"daily_{y}_{m}.xlsx"
+        _upload_or_replace_file(service, pptx_path,  folder_id, _PPTX_MIME)
+        _upload_or_replace_file(service, daily_path, folder_id, _XLSX_MIME)
+        return {"uploaded": True}
+    except Exception as e:
+        return {"uploaded": False, "reason": str(e)}
+
+
 # ──────────────────────────────────────────────
 # パイプライン
 # ──────────────────────────────────────────────
 
-def _run_pipeline(y: int, m: int):
-    for script in ["create_daily.py", "create_dashboard_img.py", "create_pptx.py"]:
-        res = subprocess.run(
-            [PY, str(SCRIPTS / script), str(y), str(m)],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            cwd=str(SCRIPTS),
-        )
-        if res.returncode != 0:
-            raise HTTPException(
-                500,
-                detail=f"{script} の実行中にエラー:\n{res.stderr or res.stdout}",
-            )
+def _run_pipeline_sync(y: int, m: int):
+    """3ステップを同一プロセス内で直接呼び出す（サブプロセス起動なし）。ブロッキングなので to_thread で呼ぶこと。"""
+    steps = [
+        ("create_daily",         create_daily.create_daily),
+        ("create_dashboard_img", create_dashboard_img.create_dashboard),
+        ("create_pptx",          create_pptx.create_pptx),
+    ]
+    for name, fn in steps:
+        try:
+            fn(y, m)
+        except Exception as e:
+            raise HTTPException(500, detail=f"{name} の実行中にエラー: {e}")
+
+
+async def _run_pipeline(y: int, m: int):
+    await asyncio.to_thread(_run_pipeline_sync, y, m)
 
 
 def _base64_result(y: int, m: int) -> dict:
@@ -128,8 +194,10 @@ async def upload_and_generate(
     SRC_DIR.mkdir(exist_ok=True)
     DATA.mkdir(parents=True, exist_ok=True)
     (SRC_DIR / f"★営業日報{y}年{m}月.xlsx").write_bytes(await file.read())
-    _run_pipeline(y, m)
-    return _base64_result(y, m)
+    await _run_pipeline(y, m)
+    result = _base64_result(y, m)
+    result["drive_upload"] = await asyncio.to_thread(_sync_outputs_to_drive, y, m)
+    return result
 
 
 @app.post("/api/drive-generate")
@@ -153,8 +221,10 @@ async def drive_generate(req: Req) -> dict:
     DATA.mkdir(parents=True, exist_ok=True)
     (SRC_DIR / filename).write_bytes(_download_drive_file(service, files[0]["id"]))
 
-    _run_pipeline(y, m)
-    return _base64_result(y, m)
+    await _run_pipeline(y, m)
+    result = _base64_result(y, m)
+    result["drive_upload"] = await asyncio.to_thread(_sync_outputs_to_drive, y, m)
+    return result
 
 
 @app.get("/api/list-reports")
@@ -306,6 +376,7 @@ async def debug_drive():
     result = {
         "GOOGLE_DRIVE_FOLDER_ID":        os.environ.get("GOOGLE_DRIVE_FOLDER_ID",        "未設定"),
         "GOOGLE_DRIVE_OUTPUT_FOLDER_ID": os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID", "未設定"),
+        "GOOGLE_DRIVE_UPLOAD_FOLDER_ID": os.environ.get("GOOGLE_DRIVE_UPLOAD_FOLDER_ID", "未設定"),
         "GOOGLE_SERVICE_ACCOUNT_JSON":   "設定あり" if os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") else "未設定",
     }
     try:

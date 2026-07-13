@@ -8,3 +8,5 @@ my_dashboard.pptx
 .env
 *.json
 !/frontend/public/data/*.json
+PLAN.md
+.claude/settings.local.json

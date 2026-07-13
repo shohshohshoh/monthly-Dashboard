@@ -400,6 +400,31 @@ async def debug_drive():
             result["output_folder_accessible"] = False
             result["output_folder_error"] = str(e)
 
+    up_id = (os.environ.get("GOOGLE_DRIVE_UPLOAD_FOLDER_ID") or "").strip()
+    if up_id:
+        try:
+            meta = service.files().get(
+                fileId=up_id,
+                fields="id,name,mimeType,driveId,capabilities(canAddChildren,canEdit),owners(emailAddress)",
+                supportsAllDrives=True,
+            ).execute()
+            result["upload_folder_meta"] = meta
+        except Exception as e:
+            result["upload_folder_meta_error"] = str(e)
+
+        try:
+            from googleapiclient.http import MediaInMemoryUpload
+            created = service.files().create(
+                body={"name": "_upload_test.txt", "parents": [up_id]},
+                media_body=MediaInMemoryUpload(b"test", mimetype="text/plain"),
+                fields="id,name,parents,driveId",
+            ).execute()
+            result["upload_test_create"] = created
+            service.files().delete(fileId=created["id"], supportsAllDrives=True).execute()
+            result["upload_test_cleanup"] = "deleted"
+        except Exception as e:
+            result["upload_test_create_error"] = str(e)
+
     return result
 
 

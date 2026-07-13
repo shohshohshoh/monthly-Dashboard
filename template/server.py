@@ -78,8 +78,7 @@ def _get_drive_service():
 
     credentials = service_account.Credentials.from_service_account_info(
         json.loads(creds_json),
-        # 生成物（PPTX/XLSX）を指定フォルダへ自動アップロードするため書き込み権限が必要
-        scopes=["https://www.googleapis.com/auth/drive"],
+        scopes=["https://www.googleapis.com/auth/drive.readonly"],
     )
     _drive_service_cache = build("drive", "v3", credentials=credentials)
     return _drive_service_cache
@@ -95,53 +94,6 @@ def _download_drive_file(service, file_id: str) -> bytes:
     while not done:
         _, done = downloader.next_chunk()
     return buf.getvalue()
-
-
-def _upload_or_replace_file(service, local_path: Path, folder_id: str, mime_type: str) -> str:
-    """local_path のファイルを Drive の folder_id 直下へアップロード。
-    同名ファイルが既に存在する場合は内容を上書き（再生成のたびに重複が増えないように）。"""
-    from googleapiclient.http import MediaFileUpload
-
-    existing = service.files().list(
-        q=f"name='{local_path.name}' and '{folder_id}' in parents and trashed=false",
-        fields="files(id)",
-    ).execute().get("files", [])
-
-    media = MediaFileUpload(str(local_path), mimetype=mime_type, resumable=False)
-
-    if existing:
-        file_id = existing[0]["id"]
-        service.files().update(fileId=file_id, media_body=media).execute()
-        return file_id
-
-    created = service.files().create(
-        body={"name": local_path.name, "parents": [folder_id]},
-        media_body=media,
-        fields="id",
-    ).execute()
-    return created["id"]
-
-
-_PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-
-def _sync_outputs_to_drive(y: int, m: int) -> dict:
-    """生成済みの pptx・daily xlsx を GOOGLE_DRIVE_UPLOAD_FOLDER_ID へ自動保存する。
-    失敗してもメイン処理（生成・ダウンロード提供）は継続させるため例外は投げず結果を dict で返す。"""
-    folder_id = (os.environ.get("GOOGLE_DRIVE_UPLOAD_FOLDER_ID") or "").strip()
-    if not folder_id:
-        return {"uploaded": False, "reason": "GOOGLE_DRIVE_UPLOAD_FOLDER_ID が未設定です"}
-
-    try:
-        service = _get_drive_service()
-        pptx_path  = DATA / f"dashboard_{y}_{m}.pptx"
-        daily_path = DATA / f"daily_{y}_{m}.xlsx"
-        _upload_or_replace_file(service, pptx_path,  folder_id, _PPTX_MIME)
-        _upload_or_replace_file(service, daily_path, folder_id, _XLSX_MIME)
-        return {"uploaded": True}
-    except Exception as e:
-        return {"uploaded": False, "reason": str(e)}
 
 
 # ──────────────────────────────────────────────
@@ -195,9 +147,7 @@ async def upload_and_generate(
     DATA.mkdir(parents=True, exist_ok=True)
     (SRC_DIR / f"★営業日報{y}年{m}月.xlsx").write_bytes(await file.read())
     await _run_pipeline(y, m)
-    result = _base64_result(y, m)
-    result["drive_upload"] = await asyncio.to_thread(_sync_outputs_to_drive, y, m)
-    return result
+    return _base64_result(y, m)
 
 
 @app.post("/api/drive-generate")
@@ -222,9 +172,7 @@ async def drive_generate(req: Req) -> dict:
     (SRC_DIR / filename).write_bytes(_download_drive_file(service, files[0]["id"]))
 
     await _run_pipeline(y, m)
-    result = _base64_result(y, m)
-    result["drive_upload"] = await asyncio.to_thread(_sync_outputs_to_drive, y, m)
-    return result
+    return _base64_result(y, m)
 
 
 @app.get("/api/list-reports")
@@ -376,7 +324,6 @@ async def debug_drive():
     result = {
         "GOOGLE_DRIVE_FOLDER_ID":        os.environ.get("GOOGLE_DRIVE_FOLDER_ID",        "未設定"),
         "GOOGLE_DRIVE_OUTPUT_FOLDER_ID": os.environ.get("GOOGLE_DRIVE_OUTPUT_FOLDER_ID", "未設定"),
-        "GOOGLE_DRIVE_UPLOAD_FOLDER_ID": os.environ.get("GOOGLE_DRIVE_UPLOAD_FOLDER_ID", "未設定"),
         "GOOGLE_SERVICE_ACCOUNT_JSON":   "設定あり" if os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") else "未設定",
     }
     try:
@@ -399,31 +346,6 @@ async def debug_drive():
         except Exception as e:
             result["output_folder_accessible"] = False
             result["output_folder_error"] = str(e)
-
-    up_id = (os.environ.get("GOOGLE_DRIVE_UPLOAD_FOLDER_ID") or "").strip()
-    if up_id:
-        try:
-            meta = service.files().get(
-                fileId=up_id,
-                fields="id,name,mimeType,driveId,capabilities(canAddChildren,canEdit),owners(emailAddress)",
-                supportsAllDrives=True,
-            ).execute()
-            result["upload_folder_meta"] = meta
-        except Exception as e:
-            result["upload_folder_meta_error"] = str(e)
-
-        try:
-            from googleapiclient.http import MediaInMemoryUpload
-            created = service.files().create(
-                body={"name": "_upload_test.txt", "parents": [up_id]},
-                media_body=MediaInMemoryUpload(b"test", mimetype="text/plain"),
-                fields="id,name,parents,driveId",
-            ).execute()
-            result["upload_test_create"] = created
-            service.files().delete(fileId=created["id"], supportsAllDrives=True).execute()
-            result["upload_test_cleanup"] = "deleted"
-        except Exception as e:
-            result["upload_test_create_error"] = str(e)
 
     return result
 

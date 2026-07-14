@@ -10,7 +10,7 @@
   --c5:      #d93025;
   --grid:    #e0e4ea;
   --text:    #202124;
-  --sub:     #5f6368;
+  --sub:     #14284d;
   --border:  #e0e4ea;
   --radius:  10px;
 }
@@ -69,6 +69,7 @@ body {
 .card-desc {
   font-size: 0.9rem;
   color: var(--sub);
+  font-weight: bold;
   line-height: 1.6;
 }
 
@@ -76,6 +77,7 @@ body {
 .label {
   font-size: 0.85rem;
   color: var(--sub);
+  font-weight: bold;
   letter-spacing: 0.05em;
 }
 
@@ -155,7 +157,7 @@ body {
 }
 
 .msg--error   { color: var(--c5);  background: rgba(217,48,37,0.07);  border-left: 3px solid var(--c5); }
-.msg--info    { color: var(--sub); background: #f1f3f4;               border-left: 3px solid var(--grid); }
+.msg--info    { color: var(--sub); font-weight: bold; background: #f1f3f4; border-left: 3px solid var(--grid); }
 .msg--success { color: var(--c3);  background: rgba(24,128,56,0.08);  border-left: 3px solid var(--c3); }
 .msg--warn    { color: var(--c4);  background: rgba(227,116,0,0.07);  border-left: 3px solid var(--c4); }
 
@@ -188,6 +190,7 @@ body {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--sub);
+  font-weight: bold;
 }
 
 .btn--neutral:hover:not(:disabled) {
@@ -229,6 +232,7 @@ body {
 .modal-message {
   font-size: 0.9rem;
   color: var(--sub);
+  font-weight: bold;
   line-height: 1.6;
 }
 

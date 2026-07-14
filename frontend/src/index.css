@@ -1,8 +1,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #f5f7fa;
-  color: #202124;
+  background: linear-gradient(180deg, #fff9ed 0%, #fff7e7 100%);
+  color: #1f2937;
   font-family: 'Yu Gothic', 'Meiryo', 'MS Gothic', sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;

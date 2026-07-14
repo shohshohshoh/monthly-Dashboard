@@ -123,11 +123,12 @@ export default function App() {
 
   // アプリ起動時にレポート一覧を取得
   useEffect(() => {
-    if (!IS_CLOUD) return
+    if (NO_BACKEND) return
     loadReports()
   }, [])
 
   async function loadReports() {
+    if (NO_BACKEND) return
     setReportsLoading(true)
     try {
       const res = await fetch(`${API}/api/list-reports`)
@@ -410,7 +411,7 @@ export default function App() {
         </form>
 
         {/* 生成済みレポート一覧 */}
-        {IS_CLOUD && (
+        {!NO_BACKEND && (
           <div className="card reports-card">
             <div className="reports-header">
               <h2 className="reports-title">生成済みレポート</h2>
@@ -427,13 +428,12 @@ export default function App() {
               <p className="msg">まだ生成済みのレポートはありません</p>
             )}
             {!reportsLoading && reports.length > 0 && (() => {
-              const COLS = 3
+              const COLS = 5
+              const ROWS = 12
+              const totalCells = COLS * ROWS
               const sorted = [...reports].sort((a, b) =>
                 b.year !== a.year ? b.year - a.year : b.month - a.month)
-              const numRows = Math.ceil(sorted.length / COLS)
-              const cells = Array.from({ length: numRows * COLS }, (_, i) =>
-                sorted[(i % COLS) * numRows + Math.floor(i / COLS)] ?? null
-              )
+              const cells = Array.from({ length: totalCells }, (_, i) => sorted[i] ?? null)
               return (
                 <ul className="reports-list">
                   {cells.map((r, i) => {

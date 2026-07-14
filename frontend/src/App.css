@@ -346,7 +346,7 @@ body {
   list-style: none;
   display: grid;
   grid-auto-flow: column;
-  grid-template-rows: repeat(12, 46px);
+  grid-template-rows: repeat(6, 46px);
   grid-auto-columns: minmax(130px, 1fr);
   gap: 6px;
   overflow-x: auto;

@@ -428,16 +428,11 @@ export default function App() {
               <p className="msg">まだ生成済みのレポートはありません</p>
             )}
             {!reportsLoading && reports.length > 0 && (() => {
-              const COLS = 5
-              const ROWS = 12
-              const totalCells = COLS * ROWS
               const sorted = [...reports].sort((a, b) =>
                 b.year !== a.year ? b.year - a.year : b.month - a.month)
-              const cells = Array.from({ length: totalCells }, (_, i) => sorted[i] ?? null)
               return (
                 <ul className="reports-list">
-                  {cells.map((r, i) => {
-                    if (!r) return <li key={`pad-${i}`} className="report-item-pad" />
+                  {sorted.map(r => {
                     const key = `${r.year}-${r.month}`
                     const isViewing = loadingReportKey === key
                     return (

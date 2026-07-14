@@ -38,6 +38,29 @@ function downloadPath(path, filename) {
   a.click()
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Render無料枠はスリープ後の初回アクセスに時間がかかるため、
+// "Failed to fetch"（未起動時の接続失敗）に限り一定間隔でリトライする。
+async function withWakeRetry(fn, { maxRetries = 5, intervalMs = 10000, onRetrying } = {}) {
+  try {
+    return await fn()
+  } catch (err) {
+    if (err.message !== 'Failed to fetch') throw err
+    onRetrying?.()
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      await sleep(intervalMs)
+      try {
+        return await fn()
+      } catch (err2) {
+        if (err2.message !== 'Failed to fetch' || attempt === maxRetries) throw err2
+      }
+    }
+  }
+}
+
 function Modal({ title, message, onConfirm, onCancel, confirmLabel = 'はい', cancelLabel = 'キャンセル', danger = false }) {
   return (
     <div className="modal-overlay">
@@ -144,20 +167,11 @@ export default function App() {
     setViewReport(null)
     setPhase('generating')
     try {
-      let data
-      try {
-        data = await tryGenerate()
-      } catch (err) {
-        if (err.message === 'Failed to fetch') {
-          setPhase('waking')
-          await new Promise(r => setTimeout(r, 12000))
-          setPhase('generating')
-          data = await tryGenerate()
-        } else {
-          throw err
-        }
-      }
+      const data = await withWakeRetry(tryGenerate, {
+        onRetrying: () => setPhase('waking'),
+      })
 
+      setPhase('generating')
       setPptxBlob(b64toBlob(data.pptx_base64, PPTX))
       setPptxFilename(data.pptx_filename)
       setDailyBlob(b64toBlob(data.daily_base64, XLSX))

@@ -371,3 +371,57 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── スマートフォン向けレイアウト ── */
+@media (max-width: 640px) {
+  .header {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+
+  .header-title {
+    font-size: 1.1rem;
+  }
+
+  .main {
+    margin: 20px auto;
+    padding: 0 12px;
+    gap: 20px;
+  }
+
+  .card {
+    padding: 18px 16px;
+    gap: 12px;
+    border-radius: 14px;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  .input-row .btn {
+    width: 100%;
+  }
+
+  .reports-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* 横スクロールの多列グリッドではなく、縦一列で自然にスクロールさせる */
+  .reports-list {
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: 46px;
+    overflow-x: visible;
+  }
+
+  .modal {
+    padding: 24px 20px;
+  }
+
+  .lightbox-bar {
+    flex-wrap: wrap;
+  }
+}

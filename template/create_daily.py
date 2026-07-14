@@ -51,8 +51,31 @@ def _int(val):
         return 0
 
 
-def _sum(ws, r_start, r_end, col):
-    return sum(_int(ws.cell(r, col).value) for r in range(r_start, r_end + 1))
+def _read_grid(ws, max_row, max_col):
+    """ws を1回だけ前方向に読み、grid[row][col-1] (1-indexed row) で参照できるリストに変換する。
+    read_only ワークシートは逆方向シークができず、cell()でのランダムアクセスは
+    先頭から再走査するため極端に遅くなる。1回のforward iterationでキャッシュしておく。"""
+    grid = [None]
+    for row in ws.iter_rows(min_row=1, max_row=max_row, max_col=max_col, values_only=True):
+        grid.append(row)
+    return grid
+
+
+def _gv(grid, row, col):
+    if row >= len(grid) or grid[row] is None or col > len(grid[row]):
+        return None
+    return grid[row][col - 1]
+
+
+def _sum(grid, r_start, r_end, col):
+    return sum(_int(_gv(grid, r, col)) for r in range(r_start, r_end + 1))
+
+
+# 元Excelの書式崩れ（余分な行・列への書式設定等）で ws.max_row / ws.max_column が
+# 異常に大きくなるケースへの耐性のため、実際に必要な範囲を明示的な上限で区切る。
+_DATE_COL_START = 6
+_DATE_COL_MAX   = _DATE_COL_START + 40   # 1か月は最大31日、余裕を見て+40列まで走査
+_SHOHIN_MAX_ROW = 2000                   # 商品別データは通常でも数百行程度
 
 
 def create_daily(year: int, month: int) -> Path:
@@ -63,14 +86,18 @@ def create_daily(year: int, month: int) -> Path:
     out = OUT_DIR / f"daily_{year}_{month}.xlsx"
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    wb_src    = openpyxl.load_workbook(str(src), data_only=True)
+    # read_only=True: 「データ」「商品別」以外のシートに書式崩れ等でメモリを
+    # 大量消費する内容が残っていても、アクセスしない限り読み込まれない。
+    wb_src    = openpyxl.load_workbook(str(src), data_only=True, read_only=True)
     ws_data   = wb_src["データ"]
     ws_shohin = wb_src["商品別"]
 
+    grid_data = _read_grid(ws_data, R_YU_AMT, _DATE_COL_MAX)
+
     # 行1 でデータ列を特定（列F以降、datetime値）
     date_cols = []
-    for col in range(6, ws_data.max_column + 1):
-        val = ws_data.cell(1, col).value
+    for col in range(_DATE_COL_START, _DATE_COL_MAX + 1):
+        val = _gv(grid_data, 1, col)
         if val is None:
             break
         if isinstance(val, datetime) and val.year == year and val.month == month:
@@ -86,36 +113,36 @@ def create_daily(year: int, month: int) -> Path:
 
     daily_rows = []
     for col, dt in date_cols:
-        teikyu   = ws_data.cell(R_TEIKYU, col).value or None
-        kyujitsu = ws_data.cell(R_KYUJITSU, col).value or None
+        teikyu   = _gv(grid_data, R_TEIKYU, col) or None
+        kyujitsu = _gv(grid_data, R_KYUJITSU, col) or None
 
-        total = _int(ws_data.cell(R_TOTAL, col).value)
+        total = _int(_gv(grid_data, R_TOTAL, col))
         if total == 0:
             teikyu = "休"
 
         row = {
             "日付":         dt,
-            "曜日":         ws_data.cell(R_YOUBI,    col).value or "",
+            "曜日":         _gv(grid_data, R_YOUBI, col) or "",
             "定休":         teikyu,
             "祝日":         kyujitsu,
-            "純売上高":     _int(ws_data.cell(R_JUN,      col).value),
-            "消費税":       _int(ws_data.cell(R_ZEIZEI,   col).value),
-            "総売上高":     _int(ws_data.cell(R_TOTAL,    col).value),
-            "現金":         _int(ws_data.cell(R_CASH,     col).value),
-            "JCB":          _int(ws_data.cell(R_JCB,      col).value),
-            "千葉銀行":     _int(ws_data.cell(R_CHIBA,    col).value),
-            "アクアコイン": _sum(ws_data, R_AQUA_S, R_AQUA_E, col),
-            "PayPay":       _sum(ws_data, R_PAY_S,  R_PAY_E,  col),
-            "ふるさと納税": _sum(ws_data, R_FURU_S, R_FURU_E, col),
-            "売掛金":       _int(ws_data.cell(R_URIKAKE,  col).value),
-            "FOOD":         _int(ws_data.cell(R_FOOD,     col).value),
-            "DRINK":        _int(ws_data.cell(R_DRINK,    col).value),
-            "売店":         _int(ws_data.cell(R_BAITEN,   col).value),
-            "その他":       _int(ws_data.cell(R_OTHER,    col).value),
-            "昼食客数":     _int(ws_data.cell(R_HIRU_KAK, col).value),
-            "夕食客数":     _int(ws_data.cell(R_YU_KAK,   col).value),
-            "昼食売上":     _int(ws_data.cell(R_HIRU_AMT, col).value),
-            "夕食売上":     _int(ws_data.cell(R_YU_AMT,   col).value),
+            "純売上高":     _int(_gv(grid_data, R_JUN,      col)),
+            "消費税":       _int(_gv(grid_data, R_ZEIZEI,   col)),
+            "総売上高":     _int(_gv(grid_data, R_TOTAL,    col)),
+            "現金":         _int(_gv(grid_data, R_CASH,     col)),
+            "JCB":          _int(_gv(grid_data, R_JCB,      col)),
+            "千葉銀行":     _int(_gv(grid_data, R_CHIBA,    col)),
+            "アクアコイン": _sum(grid_data, R_AQUA_S, R_AQUA_E, col),
+            "PayPay":       _sum(grid_data, R_PAY_S,  R_PAY_E,  col),
+            "ふるさと納税": _sum(grid_data, R_FURU_S, R_FURU_E, col),
+            "売掛金":       _int(_gv(grid_data, R_URIKAKE,  col)),
+            "FOOD":         _int(_gv(grid_data, R_FOOD,     col)),
+            "DRINK":        _int(_gv(grid_data, R_DRINK,    col)),
+            "売店":         _int(_gv(grid_data, R_BAITEN,   col)),
+            "その他":       _int(_gv(grid_data, R_OTHER,    col)),
+            "昼食客数":     _int(_gv(grid_data, R_HIRU_KAK, col)),
+            "夕食客数":     _int(_gv(grid_data, R_YU_KAK,   col)),
+            "昼食売上":     _int(_gv(grid_data, R_HIRU_AMT, col)),
+            "夕食売上":     _int(_gv(grid_data, R_YU_AMT,   col)),
         }
         daily_rows.append(row)
 
@@ -124,9 +151,11 @@ def create_daily(year: int, month: int) -> Path:
                    "F商品名", "F単価", "F数量", "F金額",
                    "D商品名", "D単価", "D数量", "D金額"]
 
+    grid_shohin = _read_grid(ws_shohin, _SHOHIN_MAX_ROW, 12)
+
     shohin_rows = []
-    for r in range(3, ws_shohin.max_row + 1):
-        vals = [ws_shohin.cell(r, c).value for c in range(1, 13)]
+    for r in range(3, _SHOHIN_MAX_ROW + 1):
+        vals = [_gv(grid_shohin, r, c) for c in range(1, 13)]
         if vals[0] is None:
             continue
         dt = vals[0]

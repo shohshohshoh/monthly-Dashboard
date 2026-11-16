@@ -45,8 +45,16 @@ R_YU_AMT    = 51  # 夕食売上
 
 
 def _int(val):
+    """セル値を int に変換する。None・空白・"-" 等の数値でない値は 0 とする。
+    文字列の数値（"1,200" や全角スペース混じり等）も可能な範囲で変換する。"""
+    if val is None:
+        return 0
+    if isinstance(val, str):
+        val = val.strip().replace(",", "").replace("，", "").replace("¥", "").replace("￥", "")
+        if not val:
+            return 0
     try:
-        return int(val) if val is not None else 0
+        return int(float(val))
     except (ValueError, TypeError):
         return 0
 
@@ -166,10 +174,10 @@ def create_daily(year: int, month: int) -> Path:
             "日":      dt.day,
             "曜日":    vals[2] or "",
             "順位":    vals[3] or "",
-            "F商品名": vals[4],  "F単価": int(vals[5]  or 0),
-            "F数量":   int(vals[6]  or 0), "F金額": int(vals[7]  or 0),
-            "D商品名": vals[8],  "D単価": int(vals[9]  or 0),
-            "D数量":   int(vals[10] or 0), "D金額": int(vals[11] or 0),
+            "F商品名": vals[4],  "F単価": _int(vals[5]),
+            "F数量":   _int(vals[6]),  "F金額": _int(vals[7]),
+            "D商品名": vals[8],  "D単価": _int(vals[9]),
+            "D数量":   _int(vals[10]), "D金額": _int(vals[11]),
         })
 
     # ── Excel出力 ──
